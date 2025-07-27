@@ -1,0 +1,14 @@
+.{
+    .name = .mizar,
+    .version = "0.0.0",
+    .fingerprint = 0x7a255b18b32cc57b,
+    .minimum_zig_version = "0.14.1",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}
