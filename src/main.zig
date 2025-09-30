@@ -7,14 +7,14 @@ const Event = union(enum) {
 };
 
 const MultilineEditor = struct {
-    lines: std.ArrayListUnmanaged(std.ArrayListUnmanaged(u8)),
+    lines: std.ArrayList(std.ArrayList(u8)),
     cursor_row: usize,
     cursor_col: usize,
     allocator: std.mem.Allocator,
 
     fn init(allocator: std.mem.Allocator) !MultilineEditor {
-        var lines = std.ArrayListUnmanaged(std.ArrayListUnmanaged(u8)){};
-        const first_line = std.ArrayListUnmanaged(u8){};
+        var lines = std.ArrayList(std.ArrayList(u8)){};
+        const first_line = std.ArrayList(u8){};
         try lines.append(allocator, first_line);
 
         return MultilineEditor{
@@ -38,12 +38,20 @@ const MultilineEditor = struct {
         self.cursor_col += 1;
     }
 
+    fn insertText(self: *MultilineEditor, text: []const u8) !void {
+        if (self.cursor_row >= self.lines.items.len) return;
+        for (text) |char| {
+            try self.lines.items[self.cursor_row].insert(self.allocator, self.cursor_col, char);
+            self.cursor_col += 1;
+        }
+    }
+
     fn insertNewline(self: *MultilineEditor) !void {
         if (self.cursor_row >= self.lines.items.len) return;
 
         // Split current line at cursor
         const current_line = &self.lines.items[self.cursor_row];
-        var new_line = std.ArrayListUnmanaged(u8){};
+        var new_line = std.ArrayList(u8){};
 
         // Move text after cursor to new line
         if (self.cursor_col < current_line.items.len) {
@@ -58,7 +66,40 @@ const MultilineEditor = struct {
     }
 
     fn handleKey(self: *MultilineEditor, key: vaxis.Key) !void {
-        if (key.codepoint == '\r' or key.codepoint == '\n') {
+        // Arrow keys and navigation
+        if (key.codepoint == vaxis.Key.left) {
+            if (self.cursor_col > 0) {
+                self.cursor_col -= 1;
+            } else if (self.cursor_row > 0) {
+                // Move to end of previous line
+                self.cursor_row -= 1;
+                self.cursor_col = self.lines.items[self.cursor_row].items.len;
+            }
+        } else if (key.codepoint == vaxis.Key.right) {
+            if (self.cursor_col < self.lines.items[self.cursor_row].items.len) {
+                self.cursor_col += 1;
+            } else if (self.cursor_row < self.lines.items.len - 1) {
+                // Move to start of next line
+                self.cursor_row += 1;
+                self.cursor_col = 0;
+            }
+        } else if (key.codepoint == vaxis.Key.up) {
+            if (self.cursor_row > 0) {
+                self.cursor_row -= 1;
+                // Keep cursor_col, but clamp to line length
+                self.cursor_col = @min(self.cursor_col, self.lines.items[self.cursor_row].items.len);
+            }
+        } else if (key.codepoint == vaxis.Key.down) {
+            if (self.cursor_row < self.lines.items.len - 1) {
+                self.cursor_row += 1;
+                // Keep cursor_col, but clamp to line length
+                self.cursor_col = @min(self.cursor_col, self.lines.items[self.cursor_row].items.len);
+            }
+        } else if (key.codepoint == vaxis.Key.home) {
+            self.cursor_col = 0;
+        } else if (key.codepoint == vaxis.Key.end) {
+            self.cursor_col = self.lines.items[self.cursor_row].items.len;
+        } else if (key.codepoint == '\r' or key.codepoint == '\n') {
             try self.insertNewline();
         } else if (key.codepoint == 127 or key.codepoint == 8) { // Backspace
             if (self.cursor_col > 0) {
@@ -72,7 +113,12 @@ const MultilineEditor = struct {
                 try self.lines.items[self.cursor_row].appendSlice(self.allocator, current_line.items);
                 current_line.deinit(self.allocator);
             }
-        } else if (key.codepoint >= 32 and key.codepoint < 127) { // Printable ASCII
+        } else if (key.text) |text| {
+            // Use the text field which properly handles Shift and other modifiers
+            if (text.len > 0) {
+                try self.insertText(text);
+            }
+        } else if (key.codepoint >= 32 and key.codepoint <= 126) { // Fallback to codepoint
             try self.insertChar(@intCast(key.codepoint));
         }
     }
@@ -127,8 +173,9 @@ pub fn main() !void {
         const event = loop.nextEvent();
         switch (event) {
             .key_press => |key| {
-                if (key.matches('c', .{ .ctrl = true })) break;
-                if (key.matches('l', .{ .ctrl = true })) {
+                if (key.matches('c', .{ .ctrl = true })) {
+                    break;
+                } else if (key.matches('l', .{ .ctrl = true })) {
                     vx.queueRefresh();
                 } else {
                     try editor.handleKey(key);
