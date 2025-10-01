@@ -66,8 +66,8 @@ pub fn main() !void {
                 } else if (key.matches('s', .{ .ctrl = true })) {
                     // Ctrl+S: Save file
                     if (ed.filename == null) {
-                        // Open save dialog for first time
-                        ed.mode = .save_dialog;
+                        // Enter filename edit mode
+                        ed.mode = .filename_edit;
                         ed.save_input.clearRetainingCapacity();
                     } else {
                         // Save directly if filename exists
@@ -76,8 +76,8 @@ pub fn main() !void {
                         };
                         ed.showStatus("File saved!");
                     }
-                } else if (ed.mode == .save_dialog) {
-                    // Handle save dialog input
+                } else if (ed.mode == .filename_edit) {
+                    // Handle filename editing in status bar
                     if (key.codepoint == '\r' or key.codepoint == '\n') {
                         // Enter: Confirm save
                         if (ed.save_input.items.len > 0) {
@@ -91,7 +91,7 @@ pub fn main() !void {
                             ed.mode = .normal;
                         }
                     } else if (key.codepoint == 27) { // Escape
-                        // Cancel save dialog
+                        // Cancel filename edit
                         ed.mode = .normal;
                         ed.save_input.clearRetainingCapacity();
                     } else if (key.codepoint == 127 or key.codepoint == 8) { // Backspace
@@ -114,14 +114,7 @@ pub fn main() !void {
 
         win.clear();
 
-        const child = win.child(.{
-            .x_off = 2,
-            .y_off = 2,
-            .width = if (win.width > 4) win.width - 4 else 0,
-            .height = if (win.height > 4) win.height - 4 else 0,
-        });
-
-        ui.draw(&ed, child);
+        ui.draw(&ed, win);
 
         // Draw footer bar at bottom
         ui.drawFooter(&ed, win);
@@ -131,10 +124,6 @@ pub fn main() !void {
             ui.drawStatusMessage(&ed, win);
         }
 
-        // Draw save dialog on root window (not child)
-        if (ed.mode == .save_dialog) {
-            ui.drawSaveDialog(&ed, win);
-        }
 
         try vx.render(tty.writer());
     }

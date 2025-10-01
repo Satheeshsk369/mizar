@@ -11,50 +11,17 @@ pub fn draw(ed: *editor.Editor, win: vaxis.Window) void {
         const screen_row = line_idx - start_line;
         if (screen_row >= win.height) break;
 
+        // Draw line text (truncate if too long)
         const line_text = ed.lines.items[line_idx].items;
+        const text_to_show = if (line_text.len > win.width)
+            line_text[0..win.width]
+        else
+            line_text;
 
-        // Get syntax highlighting tokens for this line
-        const tokens = ed.highlighter.getLineHighlights(line_idx, ed.allocator) catch &[_]@import("highlighter.zig").HighlightToken{};
-        defer ed.allocator.free(tokens);
-
-        if (tokens.len == 0) {
-            // No highlighting, render plain
-            const segments = [_]vaxis.Segment{
-                .{ .text = line_text, .style = .{} },
-            };
-            _ = win.print(&segments, .{ .row_offset = @intCast(screen_row) });
-        } else {
-            // Render with syntax highlighting
-            var col: usize = 0;
-            for (tokens) |token| {
-                // Render text before token if any
-                if (token.start_col > col and col < line_text.len) {
-                    const before_len = @min(token.start_col - col, line_text.len - col);
-                    const before = line_text[col..col + before_len];
-                    const seg = [_]vaxis.Segment{.{ .text = before, .style = .{} }};
-                    _ = win.print(&seg, .{ .row_offset = @intCast(screen_row), .col_offset = @intCast(col) });
-                    col += before_len;
-                }
-
-                // Render highlighted token
-                if (col < line_text.len) {
-                    const token_len = @min(token.end_col - col, line_text.len - col);
-                    const token_text = line_text[col..col + token_len];
-                    const seg = [_]vaxis.Segment{
-                        .{ .text = token_text, .style = .{ .fg = .{ .index = token.color } } },
-                    };
-                    _ = win.print(&seg, .{ .row_offset = @intCast(screen_row), .col_offset = @intCast(col) });
-                    col += token_len;
-                }
-            }
-
-            // Render remaining text after last token
-            if (col < line_text.len) {
-                const remaining = line_text[col..];
-                const seg = [_]vaxis.Segment{.{ .text = remaining, .style = .{} }};
-                _ = win.print(&seg, .{ .row_offset = @intCast(screen_row), .col_offset = @intCast(col) });
-            }
-        }
+        const text_segments = [_]vaxis.Segment{
+            .{ .text = text_to_show, .style = .{} },
+        };
+        _ = win.print(&text_segments, .{ .row_offset = @intCast(screen_row) });
     }
 
     // Set cursor position (vaxis will handle rendering)
@@ -67,6 +34,7 @@ pub fn draw(ed: *editor.Editor, win: vaxis.Window) void {
             else
                 .block;
 
+            // Set cursor position
             win.showCursor(@intCast(ed.cursor_col), @intCast(screen_row));
             win.setCursorShape(cursor_shape);
         }
@@ -74,20 +42,18 @@ pub fn draw(ed: *editor.Editor, win: vaxis.Window) void {
 }
 
 pub fn drawFooter(ed: *editor.Editor, win: vaxis.Window) void {
-    // Don't show footer when save dialog is open
-    if (ed.mode == .save_dialog) return;
     if (win.height == 0) return;
 
     const mode_text = switch (ed.mode) {
         .normal => " NOR ",
         .insert => " INS ",
-        .save_dialog => return,
+        .filename_edit => " SAVE ",
     };
 
     const mode_bg: u8 = switch (ed.mode) {
         .normal => 12, // Bright blue
         .insert => 10, // Bright green
-        .save_dialog => 7,
+        .filename_edit => 14, // Bright yellow
     };
 
     // Create footer at the bottom of window
@@ -106,11 +72,17 @@ pub fn drawFooter(ed: *editor.Editor, win: vaxis.Window) void {
     };
     _ = win.print(&mode_segments, .{ .row_offset = @intCast(footer_row), .col_offset = 0 });
 
-    // Draw filename next to mode indicator
-    const filename_text = if (ed.filename) |f| f.items else "[No Name]";
-
+    // Draw filename next to mode indicator (with * if modified)
+    // In filename_edit mode, show the input buffer instead
     var buf_filename: [256]u8 = undefined;
-    const formatted_filename = std.fmt.bufPrint(&buf_filename, " {s} ", .{filename_text}) catch " [Filename too long] ";
+    const formatted_filename = if (ed.mode == .filename_edit) blk: {
+        const input_text = if (ed.save_input.items.len > 0) ed.save_input.items else "[Enter filename]";
+        break :blk std.fmt.bufPrint(&buf_filename, " {s} ", .{input_text}) catch " [Filename too long] ";
+    } else blk: {
+        const filename_text = if (ed.filename) |f| f.items else "[No Name]";
+        const modified_marker = if (ed.modified) "*" else "";
+        break :blk std.fmt.bufPrint(&buf_filename, " {s}{s} ", .{ modified_marker, filename_text }) catch " [Filename too long] ";
+    };
 
     const filename_segments = [_]vaxis.Segment{
         .{
@@ -126,13 +98,12 @@ pub fn drawFooter(ed: *editor.Editor, win: vaxis.Window) void {
         .col_offset = @intCast(mode_text.len),
     });
 
-    // Draw file type and line info on the right side
-    const file_type_text = if (ed.file_type) |ft| ft.name else "plaintext";
+    // Draw line info on the right side
     const current_line = ed.cursor_row + 1;
     const total_lines = ed.lines.items.len;
 
     var buf_right: [128]u8 = undefined;
-    const right_info = std.fmt.bufPrint(&buf_right, " {s} {}:{} ", .{file_type_text, current_line, total_lines}) catch " ??? ";
+    const right_info = std.fmt.bufPrint(&buf_right, " {}:{} ", .{current_line, total_lines}) catch " ??? ";
 
     const right_col = if (win.width > right_info.len) win.width - right_info.len else 0;
 
@@ -200,49 +171,3 @@ pub fn drawStatusMessage(ed: *editor.Editor, win: vaxis.Window) void {
     }
 }
 
-pub fn drawSaveDialog(ed: *editor.Editor, win: vaxis.Window) void {
-    const dialog_width: u16 = 50;
-    const dialog_height: u16 = 5;
-    const dialog_x = (win.width - dialog_width) / 2;
-    const dialog_y = (win.height - dialog_height) / 2;
-
-    // Create dialog window with rounded border
-    const dialog = win.child(.{
-        .x_off = @intCast(dialog_x),
-        .y_off = @intCast(dialog_y),
-        .width = dialog_width,
-        .height = dialog_height,
-        .border = .{
-            .where = .all,
-            .style = .{ .fg = .{ .index = 6 } },
-            .glyphs = .single_rounded,
-        },
-    });
-
-    // Draw title
-    const title_segments = [_]vaxis.Segment{
-        .{ .text = " Save File ", .style = .{ .fg = .{ .index = 6 }, .bold = true } },
-    };
-    _ = dialog.print(&title_segments, .{ .row_offset = 0, .col_offset = 2 });
-
-    // Draw input prompt
-    const prompt_segments = [_]vaxis.Segment{
-        .{ .text = "Filename: ", .style = .{} },
-    };
-    _ = dialog.print(&prompt_segments, .{ .row_offset = 2, .col_offset = 2 });
-
-    // Draw input text
-    const input_segments = [_]vaxis.Segment{
-        .{ .text = ed.save_input.items, .style = .{} },
-    };
-    _ = dialog.print(&input_segments, .{ .row_offset = 2, .col_offset = 12 });
-
-    // Draw cursor in input
-    const cursor_segments = [_]vaxis.Segment{
-        .{ .text = "█", .style = .{ .fg = .{ .index = 7 } } },
-    };
-    _ = dialog.print(&cursor_segments, .{
-        .row_offset = 2,
-        .col_offset = @intCast(12 + ed.save_input.items.len),
-    });
-}

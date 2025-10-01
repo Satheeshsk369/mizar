@@ -8,10 +8,6 @@
             .url = "git+https://github.com/rockorager/libvaxis.git#6eb16bb4190dc074dafaf4f0ce7dadd50e81192a",
             .hash = "vaxis-0.5.1-BWNV_BMgCQDXdZzABeY4F_xwgE7nHFtYEP07KgEwJWo8",
         },
-        .syntax = .{
-            .url = "git+https://github.com/neurocyte/flow-syntax#7dad2163a41278b1919c1b29a7255b8cdcb51b46",
-            .hash = "flow_syntax-0.1.0-X8jOoYITAQDeMnGdPwe1ju6WNa_Ah2TsE3AJosKjptqv",
-        },
     },
     .paths = .{
         "build.zig",

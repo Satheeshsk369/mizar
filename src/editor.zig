@@ -1,13 +1,11 @@
 const std = @import("std");
 const vaxis = @import("vaxis");
-const syntax = @import("syntax");
-const Highlighter = @import("highlighter.zig");
 const Navigator = @import("navigation.zig").Navigator;
 
 pub const Mode = enum {
     normal,
     insert,
-    save_dialog,
+    filename_edit,
 };
 
 pub const Editor = struct {
@@ -21,16 +19,14 @@ pub const Editor = struct {
     status_message: ?[]const u8,
     status_timestamp: i64,
     scroll_offset: usize,
-    file_type: ?syntax.FileType,
-    highlighter: Highlighter,
     navigator: Navigator,
+    modified: bool, // Track if file has unsaved changes
 
     pub fn init(allocator: std.mem.Allocator) !Editor {
         var lines = std.ArrayList(std.ArrayList(u8)){};
         const first_line = std.ArrayList(u8){};
         try lines.append(allocator, first_line);
 
-        const highlighter = try Highlighter.init(allocator);
         const navigator = Navigator.init(allocator);
 
         return Editor{
@@ -44,9 +40,8 @@ pub const Editor = struct {
             .status_message = null,
             .status_timestamp = 0,
             .scroll_offset = 0,
-            .file_type = null,
-            .highlighter = highlighter,
             .navigator = navigator,
+            .modified = false,
         };
     }
 
@@ -96,16 +91,6 @@ pub const Editor = struct {
         try fname.appendSlice(self.allocator, path);
         self.filename = fname;
 
-        // Detect file type from extension
-        self.file_type = syntax.FileType.guess_static(path, content);
-
-        // Initialize syntax highlighting if file type detected
-        if (self.file_type) |ft| {
-            self.highlighter.setFileType(ft, content) catch |err| {
-                std.debug.print("Failed to initialize syntax highlighting: {}\n", .{err});
-            };
-        }
-
         // Detect blocks for navigation
         try self.navigator.detectBlocks(self.lines.items);
 
@@ -123,7 +108,6 @@ pub const Editor = struct {
             fname.deinit(self.allocator);
         }
         self.save_input.deinit(self.allocator);
-        self.highlighter.deinit();
         self.navigator.deinit();
     }
 
@@ -139,12 +123,15 @@ pub const Editor = struct {
                 try file.writeAll("\n");
             }
         }
+
+        self.modified = false; // Clear modified flag after save
     }
 
     pub fn insertChar(self: *Editor, char: u8) !void {
         if (self.cursor_row >= self.lines.items.len) return;
         try self.lines.items[self.cursor_row].insert(self.allocator, self.cursor_col, char);
         self.cursor_col += 1;
+        self.modified = true;
     }
 
     pub fn insertText(self: *Editor, text: []const u8) !void {
@@ -153,6 +140,7 @@ pub const Editor = struct {
             try self.lines.items[self.cursor_row].insert(self.allocator, self.cursor_col, char);
             self.cursor_col += 1;
         }
+        self.modified = true;
     }
 
     pub fn insertNewline(self: *Editor) !void {
@@ -172,6 +160,7 @@ pub const Editor = struct {
         try self.lines.insert(self.allocator, self.cursor_row + 1, new_line);
         self.cursor_row += 1;
         self.cursor_col = 0;
+        self.modified = true;
     }
 
     pub fn adjustScroll(self: *Editor, viewport_height: usize) void {
