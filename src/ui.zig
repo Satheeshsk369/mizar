@@ -11,25 +11,64 @@ pub fn draw(ed: *editor.Editor, win: vaxis.Window) void {
         const screen_row = line_idx - start_line;
         if (screen_row >= win.height) break;
 
-        const segments = [_]vaxis.Segment{
-            .{ .text = ed.lines.items[line_idx].items, .style = .{} },
-        };
-        _ = win.print(&segments, .{ .row_offset = @intCast(screen_row) });
+        const line_text = ed.lines.items[line_idx].items;
+
+        // Get syntax highlighting tokens for this line
+        const tokens = ed.highlighter.getLineHighlights(line_idx, ed.allocator) catch &[_]@import("syntax/highlighter.zig").HighlightToken{};
+        defer ed.allocator.free(tokens);
+
+        if (tokens.len == 0) {
+            // No highlighting, render plain
+            const segments = [_]vaxis.Segment{
+                .{ .text = line_text, .style = .{} },
+            };
+            _ = win.print(&segments, .{ .row_offset = @intCast(screen_row) });
+        } else {
+            // Render with syntax highlighting
+            var col: usize = 0;
+            for (tokens) |token| {
+                // Render text before token if any
+                if (token.start_col > col and col < line_text.len) {
+                    const before_len = @min(token.start_col - col, line_text.len - col);
+                    const before = line_text[col..col + before_len];
+                    const seg = [_]vaxis.Segment{.{ .text = before, .style = .{} }};
+                    _ = win.print(&seg, .{ .row_offset = @intCast(screen_row), .col_offset = @intCast(col) });
+                    col += before_len;
+                }
+
+                // Render highlighted token
+                if (col < line_text.len) {
+                    const token_len = @min(token.end_col - col, line_text.len - col);
+                    const token_text = line_text[col..col + token_len];
+                    const seg = [_]vaxis.Segment{
+                        .{ .text = token_text, .style = .{ .fg = .{ .index = token.color } } },
+                    };
+                    _ = win.print(&seg, .{ .row_offset = @intCast(screen_row), .col_offset = @intCast(col) });
+                    col += token_len;
+                }
+            }
+
+            // Render remaining text after last token
+            if (col < line_text.len) {
+                const remaining = line_text[col..];
+                const seg = [_]vaxis.Segment{.{ .text = remaining, .style = .{} }};
+                _ = win.print(&seg, .{ .row_offset = @intCast(screen_row), .col_offset = @intCast(col) });
+            }
+        }
     }
 
-    // Draw cursor (adjusted for scroll)
+    // Set cursor position (vaxis will handle rendering)
     if ((ed.mode == .normal or ed.mode == .insert) and ed.cursor_row >= ed.scroll_offset) {
         const screen_row = ed.cursor_row - ed.scroll_offset;
         if (screen_row < win.height) {
-            // Different cursor style for different modes
-            const cursor_text = if (ed.mode == .insert) "│" else "█";
-            const cursor_segments = [_]vaxis.Segment{
-                .{ .text = cursor_text, .style = .{ .fg = .{ .index = 7 } } },
-            };
-            _ = win.print(&cursor_segments, .{
-                .row_offset = @intCast(screen_row),
-                .col_offset = @intCast(ed.cursor_col),
-            });
+            // Use vaxis cursor shape based on mode
+            const cursor_shape: vaxis.Cell.CursorShape = if (ed.mode == .insert)
+                .beam
+            else
+                .block;
+
+            win.showCursor(@intCast(ed.cursor_col), @intCast(screen_row));
+            win.setCursorShape(cursor_shape);
         }
     }
 }
@@ -67,17 +106,15 @@ pub fn drawFooter(ed: *editor.Editor, win: vaxis.Window) void {
     };
     _ = win.print(&mode_segments, .{ .row_offset = @intCast(footer_row), .col_offset = 0 });
 
-    // Draw filename or [No Name] next to mode indicator
+    // Draw filename next to mode indicator
     const filename_text = if (ed.filename) |f| f.items else "[No Name]";
 
-    // Create a buffer for the filename with padding
-    var buf: [256]u8 = undefined;
-    const formatted = std.fmt.bufPrint(&buf, " {s} ", .{filename_text}) catch " [Filename too long] ";
+    var buf_filename: [256]u8 = undefined;
+    const formatted_filename = std.fmt.bufPrint(&buf_filename, " {s} ", .{filename_text}) catch " [Filename too long] ";
 
-    // Draw filename section
     const filename_segments = [_]vaxis.Segment{
         .{
-            .text = formatted,
+            .text = formatted_filename,
             .style = .{
                 .fg = .{ .index = 15 }, // White text
                 .bg = .{ .index = 8 }, // Dark gray background
@@ -89,11 +126,35 @@ pub fn drawFooter(ed: *editor.Editor, win: vaxis.Window) void {
         .col_offset = @intCast(mode_text.len),
     });
 
-    // Fill the rest of the footer with gray background
-    const filled_width = mode_text.len + formatted.len;
-    if (filled_width < win.width) {
-        var col = filled_width;
-        while (col < win.width) : (col += 1) {
+    // Draw file type and line info on the right side
+    const file_type_text = if (ed.file_type) |ft| ft.name else "plaintext";
+    const current_line = ed.cursor_row + 1;
+    const total_lines = ed.lines.items.len;
+
+    var buf_right: [128]u8 = undefined;
+    const right_info = std.fmt.bufPrint(&buf_right, " {s} {}:{} ", .{file_type_text, current_line, total_lines}) catch " ??? ";
+
+    const right_col = if (win.width > right_info.len) win.width - right_info.len else 0;
+
+    const right_segments = [_]vaxis.Segment{
+        .{
+            .text = right_info,
+            .style = .{
+                .fg = .{ .index = 15 }, // White text
+                .bg = .{ .index = 8 }, // Dark gray background
+            },
+        },
+    };
+    _ = win.print(&right_segments, .{
+        .row_offset = @intCast(footer_row),
+        .col_offset = @intCast(right_col),
+    });
+
+    // Fill the middle with gray background
+    const left_end = mode_text.len + formatted_filename.len;
+    if (left_end < right_col) {
+        var col = left_end;
+        while (col < right_col) : (col += 1) {
             const fill = [_]vaxis.Segment{
                 .{
                     .text = " ",

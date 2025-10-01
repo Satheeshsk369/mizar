@@ -9,6 +9,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const syntax = b.dependency("syntax", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "mizar",
         .root_module = b.createModule(.{
@@ -17,6 +22,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "vaxis", .module = vaxis.module("vaxis") },
+                .{ .name = "syntax", .module = syntax.module("syntax") },
             },
         }),
     });

@@ -23,36 +23,60 @@ pub fn handleKey(ed: *editor.Editor, key: vaxis.Key, viewport_height: usize) !vo
         }
     }
 
-    // Navigation (works in both normal and insert mode)
+    // Navigation: Different behavior based on mode
     if (key.codepoint == vaxis.Key.left) {
-        if (ed.cursor_col > 0) {
-            ed.cursor_col -= 1;
-        } else if (ed.cursor_row > 0) {
-            // Move to end of previous line
-            ed.cursor_row -= 1;
-            ed.cursor_col = ed.lines.items[ed.cursor_row].items.len;
+        if (ed.mode == .normal) {
+            // Normal mode: left = go to parent level
+            ed.navigateLeft();
+            ed.adjustScroll(viewport_height);
+        } else {
+            // Insert mode: character left
+            if (ed.cursor_col > 0) {
+                ed.cursor_col -= 1;
+            } else if (ed.cursor_row > 0) {
+                ed.cursor_row -= 1;
+                ed.cursor_col = ed.lines.items[ed.cursor_row].items.len;
+            }
         }
     } else if (key.codepoint == vaxis.Key.right) {
-        if (ed.cursor_col < ed.lines.items[ed.cursor_row].items.len) {
-            ed.cursor_col += 1;
-        } else if (ed.cursor_row < ed.lines.items.len - 1) {
-            // Move to start of next line
-            ed.cursor_row += 1;
-            ed.cursor_col = 0;
+        if (ed.mode == .normal) {
+            // Normal mode: right = go into child level
+            ed.navigateRight();
+            ed.adjustScroll(viewport_height);
+        } else {
+            // Insert mode: character right
+            if (ed.cursor_col < ed.lines.items[ed.cursor_row].items.len) {
+                ed.cursor_col += 1;
+            } else if (ed.cursor_row < ed.lines.items.len - 1) {
+                ed.cursor_row += 1;
+                ed.cursor_col = 0;
+            }
         }
     } else if (key.codepoint == vaxis.Key.up) {
-        if (ed.cursor_row > 0) {
-            ed.cursor_row -= 1;
-            // Keep cursor_col, but clamp to line length
-            ed.cursor_col = @min(ed.cursor_col, ed.lines.items[ed.cursor_row].items.len);
+        if (ed.mode == .normal) {
+            // Normal mode: up = previous block/line
+            ed.navigateUp();
             ed.adjustScroll(viewport_height);
+        } else {
+            // Insert mode: line up
+            if (ed.cursor_row > 0) {
+                ed.cursor_row -= 1;
+                ed.cursor_col = @min(ed.cursor_col, ed.lines.items[ed.cursor_row].items.len);
+                ed.adjustScroll(viewport_height);
+            }
         }
     } else if (key.codepoint == vaxis.Key.down) {
-        if (ed.cursor_row < ed.lines.items.len - 1) {
-            ed.cursor_row += 1;
-            // Keep cursor_col, but clamp to line length
-            ed.cursor_col = @min(ed.cursor_col, ed.lines.items[ed.cursor_row].items.len);
+        if (ed.mode == .normal) {
+            // Normal mode: down = next block/line
+            ed.navigateDown();
             ed.adjustScroll(viewport_height);
+        } else {
+            // Insert mode: line down
+            if (ed.cursor_row < ed.lines.items.len - 1) {
+                ed.cursor_row += 1;
+                ed.cursor_col = @min(ed.cursor_col, ed.lines.items[ed.cursor_row].items.len);
+                ed.adjustScroll(viewport_height);
+            }
         }
     } else if (key.codepoint == vaxis.Key.home) {
         ed.cursor_col = 0;
