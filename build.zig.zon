@@ -1,6 +1,6 @@
 .{
     .name = .mizar,
-    .version = "0.0.0",
+    .version = "0.0.1",
     .fingerprint = 0x7a255b1879d8ea6e,
     .minimum_zig_version = "0.15.1",
     .dependencies = .{

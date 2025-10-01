@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        target:
+          - x86_64-linux
+          - aarch64-linux
+          - x86_64-windows
+          - aarch64-windows
+          - x86_64-macos
+          - aarch64-macos
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+
+      - name: Build for ${{ matrix.target }}
+        run: |
+          zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSafe
+
+      - name: Create artifact directory
+        run: mkdir -p release
+
+      - name: Package binary (Linux/macOS)
+        if: "!contains(matrix.target, 'windows')"
+        run: |
+          cp zig-out/bin/mizar release/mizar-${{ matrix.target }}
+          cd release
+          tar -czf mizar-${{ matrix.target }}.tar.gz mizar-${{ matrix.target }}
+
+      - name: Package binary (Windows)
+        if: contains(matrix.target, 'windows')
+        run: |
+          cp zig-out/bin/mizar.exe release/mizar-${{ matrix.target }}.exe
+          cd release
+          zip mizar-${{ matrix.target }}.zip mizar-${{ matrix.target }}.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mizar-${{ matrix.target }}
+          path: release/*
+
+  create-release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

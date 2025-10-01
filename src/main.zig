@@ -21,6 +21,7 @@ const MultilineEditor = struct {
     save_input: std.ArrayList(u8),
     status_message: ?[]const u8,
     status_timestamp: i64,
+    scroll_offset: usize,
 
     fn init(allocator: std.mem.Allocator) !MultilineEditor {
         var lines = std.ArrayList(std.ArrayList(u8)){};
@@ -37,6 +38,7 @@ const MultilineEditor = struct {
             .save_input = std.ArrayList(u8){},
             .status_message = null,
             .status_timestamp = 0,
+            .scroll_offset = 0,
         };
     }
 
@@ -149,7 +151,16 @@ const MultilineEditor = struct {
         self.cursor_col = 0;
     }
 
-    fn handleKey(self: *MultilineEditor, key: vaxis.Key) !void {
+    fn adjustScroll(self: *MultilineEditor, viewport_height: usize) void {
+        // Ensure cursor is visible in viewport
+        if (self.cursor_row < self.scroll_offset) {
+            self.scroll_offset = self.cursor_row;
+        } else if (self.cursor_row >= self.scroll_offset + viewport_height) {
+            self.scroll_offset = self.cursor_row - viewport_height + 1;
+        }
+    }
+
+    fn handleKey(self: *MultilineEditor, key: vaxis.Key, viewport_height: usize) !void {
         // Arrow keys and navigation
         if (key.codepoint == vaxis.Key.left) {
             if (self.cursor_col > 0) {
@@ -172,17 +183,37 @@ const MultilineEditor = struct {
                 self.cursor_row -= 1;
                 // Keep cursor_col, but clamp to line length
                 self.cursor_col = @min(self.cursor_col, self.lines.items[self.cursor_row].items.len);
+                self.adjustScroll(viewport_height);
             }
         } else if (key.codepoint == vaxis.Key.down) {
             if (self.cursor_row < self.lines.items.len - 1) {
                 self.cursor_row += 1;
                 // Keep cursor_col, but clamp to line length
                 self.cursor_col = @min(self.cursor_col, self.lines.items[self.cursor_row].items.len);
+                self.adjustScroll(viewport_height);
             }
         } else if (key.codepoint == vaxis.Key.home) {
             self.cursor_col = 0;
         } else if (key.codepoint == vaxis.Key.end) {
             self.cursor_col = self.lines.items[self.cursor_row].items.len;
+        } else if (key.codepoint == vaxis.Key.page_up) {
+            // Page Up: Move up by viewport height
+            if (self.cursor_row > viewport_height) {
+                self.cursor_row -= viewport_height;
+            } else {
+                self.cursor_row = 0;
+            }
+            self.cursor_col = @min(self.cursor_col, self.lines.items[self.cursor_row].items.len);
+            self.adjustScroll(viewport_height);
+        } else if (key.codepoint == vaxis.Key.page_down) {
+            // Page Down: Move down by viewport height
+            if (self.cursor_row + viewport_height < self.lines.items.len) {
+                self.cursor_row += viewport_height;
+            } else {
+                self.cursor_row = self.lines.items.len - 1;
+            }
+            self.cursor_col = @min(self.cursor_col, self.lines.items[self.cursor_row].items.len);
+            self.adjustScroll(viewport_height);
         } else if (key.codepoint == '\r' or key.codepoint == '\n') {
             try self.insertNewline();
         } else if (key.codepoint == 127 or key.codepoint == 8) { // Backspace
@@ -208,25 +239,32 @@ const MultilineEditor = struct {
     }
 
     fn draw(self: *MultilineEditor, win: vaxis.Window) void {
-        // Draw editor content
-        for (self.lines.items, 0..) |line, row| {
-            if (row >= win.height) break;
+        // Draw editor content with scroll offset
+        const start_line = self.scroll_offset;
+        const end_line = @min(start_line + win.height, self.lines.items.len);
+
+        for (start_line..end_line) |line_idx| {
+            const screen_row = line_idx - start_line;
+            if (screen_row >= win.height) break;
 
             const segments = [_]vaxis.Segment{
-                .{ .text = line.items, .style = .{} },
+                .{ .text = self.lines.items[line_idx].items, .style = .{} },
             };
-            _ = win.print(&segments, .{ .row_offset = @intCast(row) });
+            _ = win.print(&segments, .{ .row_offset = @intCast(screen_row) });
         }
 
-        // Draw cursor in normal mode
-        if (self.mode == .normal and self.cursor_row < win.height) {
-            const cursor_segments = [_]vaxis.Segment{
-                .{ .text = "█", .style = .{ .fg = .{ .index = 7 } } },
-            };
-            _ = win.print(&cursor_segments, .{
-                .row_offset = @intCast(self.cursor_row),
-                .col_offset = @intCast(self.cursor_col),
-            });
+        // Draw cursor in normal mode (adjusted for scroll)
+        if (self.mode == .normal and self.cursor_row >= self.scroll_offset) {
+            const screen_row = self.cursor_row - self.scroll_offset;
+            if (screen_row < win.height) {
+                const cursor_segments = [_]vaxis.Segment{
+                    .{ .text = "█", .style = .{ .fg = .{ .index = 7 } } },
+                };
+                _ = win.print(&cursor_segments, .{
+                    .row_offset = @intCast(screen_row),
+                    .col_offset = @intCast(self.cursor_col),
+                });
+            }
         }
     }
 
@@ -352,6 +390,11 @@ pub fn main() !void {
     try vx.queryTerminal(tty.writer(), 1 * std.time.ns_per_s);
     while (true) {
         const event = loop.nextEvent();
+
+        // Get window dimensions early for key handling
+        const win = vx.window();
+        const child_height = if (win.height > 4) win.height - 4 else 1;
+
         switch (event) {
             .key_press => |key| {
                 if (key.matches('q', .{ .ctrl = true })) {
@@ -401,20 +444,19 @@ pub fn main() !void {
                         try editor.save_input.append(allocator, @intCast(key.codepoint));
                     }
                 } else {
-                    try editor.handleKey(key);
+                    try editor.handleKey(key, child_height);
                 }
             },
             .winsize => |ws| try vx.resize(allocator, tty.writer(), ws),
         }
 
-        const win = vx.window();
         win.clear();
 
         const child = win.child(.{
             .x_off = 2,
             .y_off = 2,
-            .width = win.width - 4,
-            .height = win.height - 4,
+            .width = if (win.width > 4) win.width - 4 else 0,
+            .height = if (win.height > 4) win.height - 4 else 0,
         });
 
         editor.draw(child);
