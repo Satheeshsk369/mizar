@@ -14,7 +14,7 @@ pub fn draw(ed: *editor.Editor, win: vaxis.Window) void {
         const line_text = ed.lines.items[line_idx].items;
 
         // Get syntax highlighting tokens for this line
-        const tokens = ed.highlighter.getLineHighlights(line_idx, ed.allocator) catch &[_]@import("syntax/highlighter.zig").HighlightToken{};
+        const tokens = ed.highlighter.getLineHighlights(line_idx, ed.allocator) catch &[_]@import("highlighter.zig").HighlightToken{};
         defer ed.allocator.free(tokens);
 
         if (tokens.len == 0) {
