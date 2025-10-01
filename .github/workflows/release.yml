@@ -34,25 +34,18 @@ jobs:
       - name: Create artifact directory
         run: mkdir -p release
 
-      - name: Package binary (Linux/macOS)
-        if: "!contains(matrix.target, 'windows')"
+      - name: Package binary
         run: |
-          cp zig-out/bin/mizar release/mizar-${{ matrix.target }}
+          mkdir -p release/mizar
+          cp zig-out/bin/mizar release/mizar/
           cd release
-          tar -czf mizar-${{ matrix.target }}.tar.gz mizar-${{ matrix.target }}
-
-      - name: Package binary (Windows)
-        if: contains(matrix.target, 'windows')
-        run: |
-          cp zig-out/bin/mizar.exe release/mizar-${{ matrix.target }}.exe
-          cd release
-          zip mizar-${{ matrix.target }}.zip mizar-${{ matrix.target }}.exe
+          tar -czf mizar-${{ matrix.target }}.tar.gz mizar
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mizar-${{ matrix.target }}
-          path: release/*
+          path: release/*.tar.gz
 
   create-release:
     needs: build-and-release
