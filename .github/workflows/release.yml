@@ -36,10 +36,11 @@ jobs:
 
       - name: Package binary
         run: |
-          mkdir -p release/mizar
-          cp zig-out/bin/mizar release/mizar/
-          cd release
+          mkdir -p mizar
+          cp zig-out/bin/mizar mizar/
           tar -czf mizar-${{ matrix.target }}.tar.gz mizar
+          mkdir -p release
+          mv mizar-${{ matrix.target }}.tar.gz release/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
