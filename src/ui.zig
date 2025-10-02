@@ -103,7 +103,7 @@ pub fn drawFooter(ed: *editor.Editor, win: vaxis.Window) void {
     const total_lines = ed.lines.items.len;
 
     var buf_right: [128]u8 = undefined;
-    const right_info = std.fmt.bufPrint(&buf_right, " {}:{} ", .{current_line, total_lines}) catch " ??? ";
+    const right_info = std.fmt.bufPrint(&buf_right, " {d}:{d} ", .{ current_line, total_lines }) catch " ??? ";
 
     const right_col = if (win.width > right_info.len) win.width - right_info.len else 0;
 

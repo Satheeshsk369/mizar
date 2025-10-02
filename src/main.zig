@@ -74,7 +74,6 @@ pub fn main() !void {
                         ed.saveToFile() catch |err| {
                             std.debug.print("Error saving file: {}\n", .{err});
                         };
-                        ed.showStatus("File saved!");
                     }
                 } else if (ed.mode == .filename_edit) {
                     // Handle filename editing in status bar
@@ -87,7 +86,6 @@ pub fn main() !void {
                             ed.saveToFile() catch |err| {
                                 std.debug.print("Error saving file: {}\n", .{err});
                             };
-                            ed.showStatus("File saved!");
                             ed.mode = .normal;
                         }
                     } else if (key.codepoint == 27) { // Escape
