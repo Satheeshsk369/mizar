@@ -2,7 +2,7 @@ const std = @import("std");
 const vaxis = @import("vaxis");
 const editor = @import("editor.zig");
 const ui = @import("ui.zig");
-const keybindings = @import("keybindings.zig");
+const keys = @import("keys.zig");
 
 const Event = union(enum) {
     key_press: vaxis.Key,
@@ -59,7 +59,7 @@ pub fn main() !void {
 
         switch (event) {
             .key_press => |key| {
-                if (key.matches('q', .{ .ctrl = true })) {
+                if (key.matches('q', .{})) {
                     break;
                 } else if (key.matches('l', .{ .ctrl = true })) {
                     vx.queueRefresh();
@@ -104,7 +104,7 @@ pub fn main() !void {
                         try ed.save_input.append(allocator, @intCast(key.codepoint));
                     }
                 } else {
-                    try keybindings.handleKey(&ed, key, child_height);
+                    try keys.handleKey(&ed, key, child_height);
                 }
             },
             .winsize => |ws| try vx.resize(allocator, tty.writer(), ws),
@@ -121,7 +121,6 @@ pub fn main() !void {
         if (ed.shouldShowStatus()) {
             ui.drawStatusMessage(&ed, win);
         }
-
 
         try vx.render(tty.writer());
     }

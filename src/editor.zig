@@ -1,6 +1,5 @@
 const std = @import("std");
 const vaxis = @import("vaxis");
-const Navigator = @import("navigation.zig").Navigator;
 
 pub const Mode = enum {
     normal,
@@ -19,15 +18,12 @@ pub const Editor = struct {
     status_message: ?[]const u8,
     status_timestamp: i64,
     scroll_offset: usize,
-    navigator: Navigator,
     modified: bool, // Track if file has unsaved changes
 
     pub fn init(allocator: std.mem.Allocator) !Editor {
         var lines = std.ArrayList(std.ArrayList(u8)){};
         const first_line = std.ArrayList(u8){};
         try lines.append(allocator, first_line);
-
-        const navigator = Navigator.init(allocator);
 
         return Editor{
             .lines = lines,
@@ -40,7 +36,6 @@ pub const Editor = struct {
             .status_message = null,
             .status_timestamp = 0,
             .scroll_offset = 0,
-            .navigator = navigator,
             .modified = false,
         };
     }
@@ -91,9 +86,6 @@ pub const Editor = struct {
         try fname.appendSlice(self.allocator, path);
         self.filename = fname;
 
-        // Detect blocks for navigation
-        try self.navigator.detectBlocks(self.lines.items);
-
         // Reset cursor
         self.cursor_row = 0;
         self.cursor_col = 0;
@@ -108,7 +100,6 @@ pub const Editor = struct {
             fname.deinit(self.allocator);
         }
         self.save_input.deinit(self.allocator);
-        self.navigator.deinit();
     }
 
     pub fn saveToFile(self: *Editor) !void {
@@ -172,32 +163,4 @@ pub const Editor = struct {
         }
     }
 
-    /// Navigate down (blocks first, then lines)
-    pub fn navigateDown(self: *Editor) void {
-        if (self.navigator.navigateDown(self.cursor_row, self.lines.items.len)) |new_line| {
-            self.cursor_row = new_line;
-            self.cursor_col = 0;
-        }
-    }
-
-    /// Navigate up (blocks first, then lines)
-    pub fn navigateUp(self: *Editor) void {
-        if (self.navigator.navigateUp(self.cursor_row)) |new_line| {
-            self.cursor_row = new_line;
-            self.cursor_col = 0;
-        }
-    }
-
-    /// Navigate right (into child blocks)
-    pub fn navigateRight(self: *Editor) void {
-        _ = self.navigator.navigateRight(self.cursor_row, self.lines.items) catch {};
-    }
-
-    /// Navigate left (to parent level)
-    pub fn navigateLeft(self: *Editor) void {
-        if (self.navigator.navigateLeft(self.cursor_row)) |new_line| {
-            self.cursor_row = new_line;
-            self.cursor_col = 0;
-        }
-    }
 };
