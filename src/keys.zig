@@ -20,6 +20,8 @@ pub const Keymaps = struct {
         try normal_map.put(.{ .codepoint = vaxis.Key.end, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.end);
         try normal_map.put(.{ .codepoint = vaxis.Key.page_up, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.pageUp);
         try normal_map.put(.{ .codepoint = vaxis.Key.page_down, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.pageDown);
+        try normal_map.put(.{ .codepoint = 'z', .mods = .{ .ctrl = true }, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.undo);
+        try normal_map.put(.{ .codepoint = 'y', .mods = .{ .ctrl = true }, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.redo);
 
         var insert_map = Keymap.init(allocator);
         try insert_map.put(.{ .codepoint = 27, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.toNormalMode);
@@ -70,8 +72,10 @@ pub fn handleKey(ed: *editor.Editor, key: vaxis.Key, viewport_height: usize, key
 
     if (map.get(key_with_text)) |action| {
         try action(ctx);
+        return;
     } else if (map.get(key_without_text)) |action| {
         try action(ctx);
+        return;
     } else if (ed.mode == .insert) {
         try actions.insertChar(ctx);
     }

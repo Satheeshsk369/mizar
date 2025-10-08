@@ -1,8 +1,8 @@
 const std = @import("std");
-const vaxis = @import("vaxis");
-const editor = @import("editor.zig");
 const ui = @import("ui.zig");
+const vaxis = @import("vaxis");
 const keys = @import("keys.zig");
+const editor = @import("editor.zig");
 
 const Event = union(enum) {
     key_press: vaxis.Key,
@@ -17,7 +17,6 @@ pub fn main() !void {
     // Parse command-line arguments
     var args = try std.process.argsWithAllocator(allocator);
     defer args.deinit();
-
     _ = args.next();
 
     const filename_arg = args.next();
@@ -105,15 +104,10 @@ pub fn main() !void {
         }
 
         win.clear();
-
         ui.draw(&ed, win);
-
         ui.drawFooter(&ed, win);
 
-        if (ed.shouldShowStatus()) {
-            ui.drawStatusMessage(&ed, win);
-        }
-
+        if (ed.shouldShowStatus()) ui.drawStatusMessage(&ed, win);
         try vx.render(tty.writer());
     }
 }

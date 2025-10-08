@@ -20,4 +20,17 @@ pub const Buffer = struct {
         }
         self.lines.deinit(self.allocator);
     }
+
+    pub fn snapshot(self: *Buffer, allocator: std.mem.Allocator) !Buffer {
+        var new_lines = std.ArrayList(std.ArrayList(u8)){};
+        for (self.lines.items) |line| {
+            var new_line = std.ArrayList(u8){};
+            try new_line.appendSlice(allocator, line.items);
+            try new_lines.append(allocator, new_line);
+        }
+        return Buffer{
+            .lines = new_lines,
+            .allocator = allocator,
+        };
+    }
 };

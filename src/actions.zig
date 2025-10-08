@@ -1,7 +1,7 @@
 const std = @import("std");
-
 const editor = @import("editor.zig");
 const context = @import("context.zig");
+const buffer = @import("buffer.zig");
 
 pub const Action = *const fn (context.ActionContext) anyerror!void;
 
@@ -100,4 +100,27 @@ pub fn pageDown(ctx: context.ActionContext) !void {
     }
     ctx.ed.cursor_col = @min(ctx.ed.cursor_col, ctx.ed.buffer.lines.items[ctx.ed.cursor_row].items.len);
     ctx.ed.adjustScroll(ctx.viewport_height);
+}
+
+pub fn undo(ctx: context.ActionContext) !void {
+    if (ctx.ed.history.popUndo()) |prev_buffer_ptr| {
+        try ctx.ed.history.pushRedo(try ctx.allocator.create(buffer.Buffer));
+        ctx.ed.history.redo.items[ctx.ed.history.redo.items.len - 1].* = try ctx.ed.buffer.snapshot(ctx.allocator);
+
+        ctx.ed.buffer.deinit();
+        ctx.ed.buffer = prev_buffer_ptr.*;
+        ctx.allocator.destroy(prev_buffer_ptr);
+        ctx.ed.modified = true;
+    }
+}
+
+pub fn redo(ctx: context.ActionContext) !void {
+    if (ctx.ed.history.popRedo()) |next_buffer| {
+        try ctx.ed.history.push(try ctx.allocator.create(buffer.Buffer));
+        ctx.ed.history.undo.items[ctx.ed.history.undo.items.len - 1].* = try ctx.ed.buffer.snapshot(ctx.allocator);
+
+        ctx.ed.buffer.deinit();
+        ctx.ed.buffer = next_buffer.*;
+        ctx.ed.modified = true;
+    }
 }

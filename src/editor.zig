@@ -1,5 +1,6 @@
 const std = @import("std");
 const vaxis = @import("vaxis");
+const buffer = @import("buffer.zig");
 
 const STATUS_MESSAGE_DURATION_MS = 2000;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB max
@@ -11,6 +12,7 @@ pub const Mode = enum {
 
 pub const Editor = struct {
     buffer: @import("buffer.zig").Buffer,
+    history: @import("history.zig").History,
     cursor_row: usize,
     cursor_col: usize,
 
@@ -24,10 +26,12 @@ pub const Editor = struct {
     modified: bool,
 
     pub fn init(allocator: std.mem.Allocator) !Editor {
-        const buffer = try @import("buffer.zig").Buffer.init(allocator);
+        const new_buffer = try buffer.Buffer.init(allocator);
+        const history = try @import("history.zig").History.init(allocator);
 
         return Editor{
-            .buffer = buffer,
+            .buffer = new_buffer,
+            .history = history,
             .cursor_row = 0,
             .cursor_col = 0,
             .filename = null,
@@ -96,8 +100,16 @@ pub const Editor = struct {
         self.cursor_col = 0;
     }
 
+    pub fn saveState(self: *Editor) !void {
+        const snapshot = try self.buffer.snapshot(self.buffer.allocator);
+        const snapshot_ptr = try self.buffer.allocator.create(buffer.Buffer);
+        snapshot_ptr.* = snapshot;
+        try self.history.push(snapshot_ptr);
+    }
+
     pub fn deinit(self: *Editor) void {
         self.buffer.deinit();
+        self.history.deinit();
         if (self.filename) |*fname| fname.deinit(self.buffer.allocator);
         self.save_input.deinit(self.buffer.allocator);
     }
@@ -119,6 +131,7 @@ pub const Editor = struct {
     }
 
     pub fn insertChar(self: *Editor, char: u8) !void {
+        try self.saveState();
         if (self.cursor_row >= self.buffer.lines.items.len) return;
         try self.buffer.lines.items[self.cursor_row].insert(self.buffer.allocator, self.cursor_col, char);
         self.cursor_col += 1;
@@ -126,6 +139,7 @@ pub const Editor = struct {
     }
 
     pub fn insertText(self: *Editor, text: []const u8) !void {
+        try self.saveState();
         if (self.cursor_row >= self.buffer.lines.items.len) return;
         for (text) |char| {
             try self.buffer.lines.items[self.cursor_row].insert(self.buffer.allocator, self.cursor_col, char);
@@ -135,6 +149,7 @@ pub const Editor = struct {
     }
 
     pub fn insertNewline(self: *Editor) !void {
+        try self.saveState();
         if (self.cursor_row >= self.buffer.lines.items.len) return;
 
         const current_line = &self.buffer.lines.items[self.cursor_row];

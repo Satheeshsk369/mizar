@@ -11,25 +11,19 @@ pub fn draw(ed: *editor.Editor, win: vaxis.Window) void {
         if (screen_row >= win.height) break;
 
         const line_text = ed.buffer.lines.items[line_idx].items;
-        const text_to_show = if (line_text.len > win.width)
-            line_text[0..win.width]
-        else
-            line_text;
+        const text_to_show = if (line_text.len > win.width) line_text[0..win.width] else line_text;
 
-        const text_segments = [_]vaxis.Segment{
-            .{ .text = text_to_show, .style = .{} },
-        };
+        const text_segments = [_]vaxis.Segment{.{
+            .text = text_to_show,
+            .style = .{},
+        }};
         _ = win.print(&text_segments, .{ .row_offset = @intCast(screen_row) });
     }
 
     if ((ed.mode == .normal or ed.mode == .insert) and ed.cursor_row >= ed.scroll_offset) {
         const screen_row = ed.cursor_row - ed.scroll_offset;
         if (screen_row < win.height) {
-            const cursor_shape: vaxis.Cell.CursorShape = if (ed.mode == .insert)
-                .beam
-            else
-                .block;
-
+            const cursor_shape: vaxis.Cell.CursorShape = if (ed.mode == .insert) .beam else .block;
             win.showCursor(@intCast(ed.cursor_col), @intCast(screen_row));
             win.setCursorShape(cursor_shape);
         }
@@ -51,16 +45,10 @@ pub fn drawFooter(ed: *editor.Editor, win: vaxis.Window) void {
 
     const footer_row = if (win.height > 0) win.height - 1 else 0;
 
-    const mode_segments = [_]vaxis.Segment{
-        .{
-            .text = mode_text,
-            .style = .{
-                .fg = .{ .index = 0 },
-                .bg = .{ .index = mode_bg },
-                .bold = true,
-            },
-        },
-    };
+    const mode_segments = [_]vaxis.Segment{.{
+        .text = mode_text,
+        .style = .{ .fg = .{ .index = 0 }, .bg = .{ .index = mode_bg }, .bold = true },
+    }};
     _ = win.print(&mode_segments, .{ .row_offset = @intCast(footer_row), .col_offset = 0 });
 
     var buf_filename: [256]u8 = undefined;
@@ -73,15 +61,10 @@ pub fn drawFooter(ed: *editor.Editor, win: vaxis.Window) void {
         break :blk std.fmt.bufPrint(&buf_filename, " {s}{s} ", .{ modified_marker, filename_text }) catch " [Filename too long] ";
     };
 
-    const filename_segments = [_]vaxis.Segment{
-        .{
-            .text = formatted_filename,
-            .style = .{
-                .fg = .{ .index = 15 },
-                .bg = .{ .index = 8 },
-            },
-        },
-    };
+    const filename_segments = [_]vaxis.Segment{.{
+        .text = formatted_filename,
+        .style = .{ .fg = .{ .index = 15 }, .bg = .{ .index = 8 } },
+    }};
     _ = win.print(&filename_segments, .{
         .row_offset = @intCast(footer_row),
         .col_offset = @intCast(mode_text.len),
@@ -95,15 +78,10 @@ pub fn drawFooter(ed: *editor.Editor, win: vaxis.Window) void {
 
     const right_col = if (win.width > right_info.len) win.width - right_info.len else 0;
 
-    const right_segments = [_]vaxis.Segment{
-        .{
-            .text = right_info,
-            .style = .{
-                .fg = .{ .index = 15 },
-                .bg = .{ .index = 8 },
-            },
-        },
-    };
+    const right_segments = [_]vaxis.Segment{.{
+        .text = right_info,
+        .style = .{ .fg = .{ .index = 15 }, .bg = .{ .index = 8 } },
+    }};
     _ = win.print(&right_segments, .{
         .row_offset = @intCast(footer_row),
         .col_offset = @intCast(right_col),
@@ -113,12 +91,10 @@ pub fn drawFooter(ed: *editor.Editor, win: vaxis.Window) void {
     if (left_end < right_col) {
         var col = left_end;
         while (col < right_col) : (col += 1) {
-            const fill = [_]vaxis.Segment{
-                .{
-                    .text = " ",
-                    .style = .{ .bg = .{ .index = 8 } },
-                },
-            };
+            const fill = [_]vaxis.Segment{.{
+                .text = " ",
+                .style = .{ .bg = .{ .index = 8 } },
+            }};
             _ = win.print(&fill, .{
                 .row_offset = @intCast(footer_row),
                 .col_offset = @intCast(col),
@@ -148,10 +124,10 @@ pub fn drawStatusMessage(ed: *editor.Editor, win: vaxis.Window) void {
             },
         });
 
-        const msg_segments = [_]vaxis.Segment{
-            .{ .text = message, .style = .{ .fg = .{ .index = 10 }, .bold = true } },
-        };
+        const msg_segments = [_]vaxis.Segment{.{
+            .text = message,
+            .style = .{ .fg = .{ .index = 10 }, .bold = true },
+        }};
         _ = status_box.print(&msg_segments, .{ .row_offset = 0, .col_offset = 2 });
     }
 }
-
