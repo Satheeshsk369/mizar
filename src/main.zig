@@ -18,10 +18,8 @@ pub fn main() !void {
     var args = try std.process.argsWithAllocator(allocator);
     defer args.deinit();
 
-    // Skip program name
     _ = args.next();
 
-    // Get optional filename argument
     const filename_arg = args.next();
 
     var buffer: [1024]u8 = undefined;
@@ -38,22 +36,20 @@ pub fn main() !void {
 
     try vx.enterAltScreen(tty.writer());
 
+    var keymaps = try keys.Keymaps.init(allocator);
+    defer keymaps.deinit();
+
     var ed = try editor.Editor.init(allocator);
     defer ed.deinit();
 
-    // Load file if provided as argument
     if (filename_arg) |filename| {
-        ed.loadFromFile(filename) catch |err| {
-            std.debug.print("Error loading file '{s}': {}\n", .{ filename, err });
-            // Continue with empty editor if file doesn't exist
-        };
+        try ed.loadFromFile(filename);
     }
 
     try vx.queryTerminal(tty.writer(), 1 * std.time.ns_per_s);
     while (true) {
         const event = loop.nextEvent();
 
-        // Get window dimensions early for key handling
         const win = vx.window();
         const child_height = if (win.height > 4) win.height - 4 else 1;
 
@@ -64,35 +60,33 @@ pub fn main() !void {
                 } else if (key.matches('l', .{ .ctrl = true })) {
                     vx.queueRefresh();
                 } else if (key.matches('s', .{ .ctrl = true })) {
-                    // Ctrl+S: Save file
                     if (ed.filename == null) {
-                        // Enter filename edit mode
-                        ed.mode = .filename_edit;
+                        ed.save_input_active = true;
                         ed.save_input.clearRetainingCapacity();
                     } else {
-                        // Save directly if filename exists
                         ed.saveToFile() catch |err| {
-                            std.debug.print("Error saving file: {}\n", .{err});
+                            var err_msg: [128]u8 = undefined;
+                            const formatted_err = std.fmt.bufPrint(&err_msg, "Error saving file: {}", .{err}) catch "Error saving file";
+                            ed.showStatus(formatted_err);
                         };
                     }
-                } else if (ed.mode == .filename_edit) {
-                    // Handle filename editing in status bar
+                } else if (ed.save_input_active) {
                     if (key.codepoint == '\r' or key.codepoint == '\n') {
-                        // Enter: Confirm save
                         if (ed.save_input.items.len > 0) {
                             var fname = std.ArrayList(u8){};
                             try fname.appendSlice(allocator, ed.save_input.items);
                             ed.filename = fname;
                             ed.saveToFile() catch |err| {
-                                std.debug.print("Error saving file: {}\n", .{err});
+                                var err_msg: [128]u8 = undefined;
+                                const formatted_err = std.fmt.bufPrint(&err_msg, "Error saving file: {}", .{err}) catch "Error saving file";
+                                ed.showStatus(formatted_err);
                             };
-                            ed.mode = .normal;
+                            ed.save_input_active = false;
                         }
-                    } else if (key.codepoint == 27) { // Escape
-                        // Cancel filename edit
-                        ed.mode = .normal;
+                    } else if (key.codepoint == 27) {
+                        ed.save_input_active = false;
                         ed.save_input.clearRetainingCapacity();
-                    } else if (key.codepoint == 127 or key.codepoint == 8) { // Backspace
+                    } else if (key.codepoint == 127 or key.codepoint == 8) {
                         if (ed.save_input.items.len > 0) {
                             _ = ed.save_input.pop();
                         }
@@ -104,7 +98,7 @@ pub fn main() !void {
                         try ed.save_input.append(allocator, @intCast(key.codepoint));
                     }
                 } else {
-                    try keys.handleKey(&ed, key, child_height);
+                    try keys.handleKey(&ed, key, child_height, &keymaps, allocator);
                 }
             },
             .winsize => |ws| try vx.resize(allocator, tty.writer(), ws),
@@ -114,10 +108,8 @@ pub fn main() !void {
 
         ui.draw(&ed, win);
 
-        // Draw footer bar at bottom
         ui.drawFooter(&ed, win);
 
-        // Draw status message on root window (not child)
         if (ed.shouldShowStatus()) {
             ui.drawStatusMessage(&ed, win);
         }

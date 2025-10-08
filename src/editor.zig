@@ -1,37 +1,38 @@
 const std = @import("std");
 const vaxis = @import("vaxis");
 
+const STATUS_MESSAGE_DURATION_MS = 2000;
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB max
+
 pub const Mode = enum {
     normal,
     insert,
-    filename_edit,
 };
 
 pub const Editor = struct {
-    lines: std.ArrayList(std.ArrayList(u8)),
+    buffer: @import("buffer.zig").Buffer,
     cursor_row: usize,
     cursor_col: usize,
-    allocator: std.mem.Allocator,
+
     filename: ?std.ArrayList(u8),
     mode: Mode,
+    save_input_active: bool,
     save_input: std.ArrayList(u8),
     status_message: ?[]const u8,
     status_timestamp: i64,
     scroll_offset: usize,
-    modified: bool, // Track if file has unsaved changes
+    modified: bool,
 
     pub fn init(allocator: std.mem.Allocator) !Editor {
-        var lines = std.ArrayList(std.ArrayList(u8)){};
-        const first_line = std.ArrayList(u8){};
-        try lines.append(allocator, first_line);
+        const buffer = try @import("buffer.zig").Buffer.init(allocator);
 
         return Editor{
-            .lines = lines,
+            .buffer = buffer,
             .cursor_row = 0,
             .cursor_col = 0,
-            .allocator = allocator,
             .filename = null,
             .mode = .normal,
+            .save_input_active = false,
             .save_input = std.ArrayList(u8){},
             .status_message = null,
             .status_timestamp = 0,
@@ -49,57 +50,56 @@ pub const Editor = struct {
         if (self.status_message == null) return false;
         const now = std.time.milliTimestamp();
         const elapsed = now - self.status_timestamp;
-        return elapsed < 2000; // 2 seconds
+        return elapsed < STATUS_MESSAGE_DURATION_MS;
     }
 
     pub fn loadFromFile(self: *Editor, path: []const u8) !void {
-        const file = try std.fs.cwd().openFile(path, .{});
+        const file = std.fs.cwd().openFile(path, .{}) catch |err| {
+            if (err == error.FileNotFound) {
+                var fname = std.ArrayList(u8){};
+                try fname.appendSlice(self.buffer.allocator, path);
+                self.filename = fname;
+                for (self.buffer.lines.items) |*line| line.deinit(self.buffer.allocator);
+                self.buffer.lines.clearRetainingCapacity();
+                const empty_line = std.ArrayList(u8){};
+                try self.buffer.lines.append(self.buffer.allocator, empty_line);
+                return;
+            } else {
+                return err;
+            }
+        };
         defer file.close();
 
-        // Clear existing content
-        for (self.lines.items) |*line| {
-            line.deinit(self.allocator);
-        }
-        self.lines.clearRetainingCapacity();
+        for (self.buffer.lines.items) |*line| line.deinit(self.buffer.allocator);
+        self.buffer.lines.clearRetainingCapacity();
 
-        // Read entire file content
-        const max_file_size = 10 * 1024 * 1024; // 10MB max
-        const content = try file.readToEndAlloc(self.allocator, max_file_size);
-        defer self.allocator.free(content);
+        const content = try file.readToEndAlloc(self.buffer.allocator, MAX_FILE_SIZE_BYTES);
+        defer self.buffer.allocator.free(content);
 
-        // Split content by newlines
         var iter = std.mem.splitScalar(u8, content, '\n');
         while (iter.next()) |line_data| {
             var line = std.ArrayList(u8){};
-            try line.appendSlice(self.allocator, line_data);
-            try self.lines.append(self.allocator, line);
+            try line.appendSlice(self.buffer.allocator, line_data);
+            try self.buffer.lines.append(self.buffer.allocator, line);
         }
 
-        // Ensure at least one line exists
-        if (self.lines.items.len == 0) {
+        if (self.buffer.lines.items.len == 0) {
             const empty_line = std.ArrayList(u8){};
-            try self.lines.append(self.allocator, empty_line);
+            try self.buffer.lines.append(self.buffer.allocator, empty_line);
         }
 
-        // Store filename
         var fname = std.ArrayList(u8){};
-        try fname.appendSlice(self.allocator, path);
+        try fname.appendSlice(self.buffer.allocator, path);
         self.filename = fname;
 
-        // Reset cursor
         self.cursor_row = 0;
         self.cursor_col = 0;
     }
 
     pub fn deinit(self: *Editor) void {
-        for (self.lines.items) |*line| {
-            line.deinit(self.allocator);
-        }
-        self.lines.deinit(self.allocator);
-        if (self.filename) |*fname| {
-            fname.deinit(self.allocator);
-        }
-        self.save_input.deinit(self.allocator);
+        self.buffer.deinit();
+        if (self.filename) |*fname| fname.deinit(self.buffer.allocator);
+        self.save_input.deinit(self.buffer.allocator);
     }
 
     pub fn saveToFile(self: *Editor) !void {
@@ -108,59 +108,54 @@ pub const Editor = struct {
         const file = try std.fs.cwd().createFile(fname, .{});
         defer file.close();
 
-        for (self.lines.items, 0..) |line, i| {
+        for (self.buffer.lines.items, 0..) |line, i| {
             try file.writeAll(line.items);
-            if (i < self.lines.items.len - 1) {
+            if (i < self.buffer.lines.items.len - 1) {
                 try file.writeAll("\n");
             }
         }
 
-        self.modified = false; // Clear modified flag after save
+        self.modified = false;
     }
 
     pub fn insertChar(self: *Editor, char: u8) !void {
-        if (self.cursor_row >= self.lines.items.len) return;
-        try self.lines.items[self.cursor_row].insert(self.allocator, self.cursor_col, char);
+        if (self.cursor_row >= self.buffer.lines.items.len) return;
+        try self.buffer.lines.items[self.cursor_row].insert(self.buffer.allocator, self.cursor_col, char);
         self.cursor_col += 1;
         self.modified = true;
     }
 
     pub fn insertText(self: *Editor, text: []const u8) !void {
-        if (self.cursor_row >= self.lines.items.len) return;
+        if (self.cursor_row >= self.buffer.lines.items.len) return;
         for (text) |char| {
-            try self.lines.items[self.cursor_row].insert(self.allocator, self.cursor_col, char);
+            try self.buffer.lines.items[self.cursor_row].insert(self.buffer.allocator, self.cursor_col, char);
             self.cursor_col += 1;
         }
         self.modified = true;
     }
 
     pub fn insertNewline(self: *Editor) !void {
-        if (self.cursor_row >= self.lines.items.len) return;
+        if (self.cursor_row >= self.buffer.lines.items.len) return;
 
-        // Split current line at cursor
-        const current_line = &self.lines.items[self.cursor_row];
+        const current_line = &self.buffer.lines.items[self.cursor_row];
         var new_line = std.ArrayList(u8){};
 
-        // Move text after cursor to new line
         if (self.cursor_col < current_line.items.len) {
-            try new_line.appendSlice(self.allocator, current_line.items[self.cursor_col..]);
+            try new_line.appendSlice(self.buffer.allocator, current_line.items[self.cursor_col..]);
             current_line.shrinkRetainingCapacity(self.cursor_col);
         }
 
-        // Insert new line
-        try self.lines.insert(self.allocator, self.cursor_row + 1, new_line);
+        try self.buffer.lines.insert(self.buffer.allocator, self.cursor_row + 1, new_line);
         self.cursor_row += 1;
         self.cursor_col = 0;
         self.modified = true;
     }
 
     pub fn adjustScroll(self: *Editor, viewport_height: usize) void {
-        // Ensure cursor is visible in viewport
         if (self.cursor_row < self.scroll_offset) {
             self.scroll_offset = self.cursor_row;
         } else if (self.cursor_row >= self.scroll_offset + viewport_height) {
             self.scroll_offset = self.cursor_row - viewport_height + 1;
         }
     }
-
 };

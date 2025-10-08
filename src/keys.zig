@@ -1,105 +1,78 @@
 const std = @import("std");
 const vaxis = @import("vaxis");
 const editor = @import("editor.zig");
+const actions = @import("actions.zig");
 
-pub fn handleKey(ed: *editor.Editor, key: vaxis.Key, viewport_height: usize) !void {
-    // Mode switching
-    if (ed.mode == .normal) {
-        // Normal mode: i enters insert mode, arrows for navigation
-        if (key.matches('i', .{})) {
-            ed.mode = .insert;
-            return;
-        }
-        // Space as leader key (placeholder for future commands)
-        if (key.matches(' ', .{})) {
-            // TODO: Leader key commands
-            return;
-        }
+const Keymap = std.AutoHashMap(vaxis.Key, actions.Action);
+
+pub const Keymaps = struct {
+    normal: Keymap,
+    insert: Keymap,
+
+    pub fn init(allocator: std.mem.Allocator) !Keymaps {
+        var normal_map = Keymap.init(allocator);
+        try normal_map.put(.{ .codepoint = 'i', .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.toInsertMode);
+        try normal_map.put(.{ .codepoint = vaxis.Key.up, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.moveUp);
+        try normal_map.put(.{ .codepoint = vaxis.Key.down, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.moveDown);
+        try normal_map.put(.{ .codepoint = vaxis.Key.left, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.moveLeft);
+        try normal_map.put(.{ .codepoint = vaxis.Key.right, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.moveRight);
+        try normal_map.put(.{ .codepoint = vaxis.Key.home, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.home);
+        try normal_map.put(.{ .codepoint = vaxis.Key.end, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.end);
+        try normal_map.put(.{ .codepoint = vaxis.Key.page_up, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.pageUp);
+        try normal_map.put(.{ .codepoint = vaxis.Key.page_down, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.pageDown);
+
+        var insert_map = Keymap.init(allocator);
+        try insert_map.put(.{ .codepoint = 27, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.toNormalMode);
+        try insert_map.put(.{ .codepoint = vaxis.Key.up, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.moveUp);
+        try insert_map.put(.{ .codepoint = vaxis.Key.down, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.moveDown);
+        try insert_map.put(.{ .codepoint = vaxis.Key.left, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.moveLeft);
+        try insert_map.put(.{ .codepoint = vaxis.Key.right, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.moveRight);
+        try insert_map.put(.{ .codepoint = vaxis.Key.home, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.home);
+        try insert_map.put(.{ .codepoint = vaxis.Key.end, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.end);
+        try insert_map.put(.{ .codepoint = vaxis.Key.page_up, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.pageUp);
+        try insert_map.put(.{ .codepoint = vaxis.Key.page_down, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.pageDown);
+        try insert_map.put(.{ .codepoint = '\r', .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.insertNewline);
+        try insert_map.put(.{ .codepoint = '\n', .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.insertNewline);
+        try insert_map.put(.{ .codepoint = 127, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.backspace);
+        try insert_map.put(.{ .codepoint = 8, .mods = .{}, .text = null, .shifted_codepoint = null, .base_layout_codepoint = null }, actions.backspace);
+
+        return Keymaps{
+            .normal = normal_map,
+            .insert = insert_map,
+        };
+    }
+
+    pub fn deinit(self: *Keymaps) void {
+        self.normal.deinit();
+        self.insert.deinit();
+    }
+};
+
+const context = @import("context.zig");
+
+pub fn handleKey(ed: *editor.Editor, key: vaxis.Key, viewport_height: usize, keymaps: *const Keymaps, allocator: std.mem.Allocator) !void {
+    const map = switch (ed.mode) {
+        .normal => &keymaps.normal,
+        .insert => &keymaps.insert,
+    };
+
+    const key_with_text = key;
+    var key_without_text = key;
+    key_without_text.text = null;
+
+    const ctx = context.ActionContext{
+        .ed = ed,
+        .key = key,
+        .viewport_height = viewport_height,
+        .keymaps = keymaps,
+        .allocator = allocator,
+    };
+
+    if (map.get(key_with_text)) |action| {
+        try action(ctx);
+    } else if (map.get(key_without_text)) |action| {
+        try action(ctx);
     } else if (ed.mode == .insert) {
-        // Insert mode: Esc returns to normal mode
-        if (key.codepoint == 27) { // Escape
-            ed.mode = .normal;
-            return;
-        }
-    }
-
-    // Navigation: Same behavior in both modes
-    if (key.codepoint == vaxis.Key.left) {
-        // Character left
-        if (ed.cursor_col > 0) {
-            ed.cursor_col -= 1;
-        } else if (ed.cursor_row > 0) {
-            ed.cursor_row -= 1;
-            ed.cursor_col = ed.lines.items[ed.cursor_row].items.len;
-        }
-    } else if (key.codepoint == vaxis.Key.right) {
-        // Character right
-        if (ed.cursor_col < ed.lines.items[ed.cursor_row].items.len) {
-            ed.cursor_col += 1;
-        } else if (ed.cursor_row < ed.lines.items.len - 1) {
-            ed.cursor_row += 1;
-            ed.cursor_col = 0;
-        }
-    } else if (key.codepoint == vaxis.Key.up) {
-        // Line up
-        if (ed.cursor_row > 0) {
-            ed.cursor_row -= 1;
-            ed.cursor_col = @min(ed.cursor_col, ed.lines.items[ed.cursor_row].items.len);
-            ed.adjustScroll(viewport_height);
-        }
-    } else if (key.codepoint == vaxis.Key.down) {
-        // Line down
-        if (ed.cursor_row < ed.lines.items.len - 1) {
-            ed.cursor_row += 1;
-            ed.cursor_col = @min(ed.cursor_col, ed.lines.items[ed.cursor_row].items.len);
-            ed.adjustScroll(viewport_height);
-        }
-    } else if (key.codepoint == vaxis.Key.home) {
-        ed.cursor_col = 0;
-    } else if (key.codepoint == vaxis.Key.end) {
-        ed.cursor_col = ed.lines.items[ed.cursor_row].items.len;
-    } else if (key.codepoint == vaxis.Key.page_up) {
-        // Page Up: Move up by viewport height
-        if (ed.cursor_row > viewport_height) {
-            ed.cursor_row -= viewport_height;
-        } else {
-            ed.cursor_row = 0;
-        }
-        ed.cursor_col = @min(ed.cursor_col, ed.lines.items[ed.cursor_row].items.len);
-        ed.adjustScroll(viewport_height);
-    } else if (key.codepoint == vaxis.Key.page_down) {
-        // Page Down: Move down by viewport height
-        if (ed.cursor_row + viewport_height < ed.lines.items.len) {
-            ed.cursor_row += viewport_height;
-        } else {
-            ed.cursor_row = ed.lines.items.len - 1;
-        }
-        ed.cursor_col = @min(ed.cursor_col, ed.lines.items[ed.cursor_row].items.len);
-        ed.adjustScroll(viewport_height);
-    }
-    // Text editing (only in insert mode)
-    else if (ed.mode == .insert) {
-        if (key.codepoint == '\r' or key.codepoint == '\n') {
-            try ed.insertNewline();
-        } else if (key.codepoint == 127 or key.codepoint == 8) { // Backspace
-            if (ed.cursor_col > 0) {
-                ed.cursor_col -= 1;
-                _ = ed.lines.items[ed.cursor_row].orderedRemove(ed.cursor_col);
-            } else if (ed.cursor_row > 0) {
-                // Join with previous line
-                var current_line = ed.lines.orderedRemove(ed.cursor_row);
-                ed.cursor_row -= 1;
-                ed.cursor_col = ed.lines.items[ed.cursor_row].items.len;
-                try ed.lines.items[ed.cursor_row].appendSlice(ed.allocator, current_line.items);
-                current_line.deinit(ed.allocator);
-            }
-        } else if (key.text) |text| {
-            // Use the text field which properly handles Shift and other modifiers
-            if (text.len > 0) {
-                try ed.insertText(text);
-            }
-        } else if (key.codepoint >= 32 and key.codepoint <= 126) { // Fallback to codepoint
-            try ed.insertChar(@intCast(key.codepoint));
-        }
+        try actions.insertChar(ctx);
     }
 }
