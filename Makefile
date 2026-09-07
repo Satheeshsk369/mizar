@@ -10,7 +10,7 @@ PKGCONFIGDIR ?= $(PREFIX)/share/pkgconfig
 SRCS = $(shell find src -name '*.c')
 OBJS = $(SRCS:src/%.c=build/%.o)
 
-all: build/libmizar.a build/libmizar.so build/mizar.pc
+all: build/libmizar.a build/libmizar.so build/mizar.pc build/compile_commands.json
 
 build/libmizar.a: $(OBJS)
 	$(AR) rcs $@ $^
@@ -28,6 +28,18 @@ build/mizar.pc: mizar.pc.in
 	     -e 's|@LIBDIR@|$(LIBDIR)|g' \
 	     -e 's|@INCLUDEDIR@|$(INCLUDEDIR)|g' \
 	     $< > $@
+
+build/compile_commands.json: $(SRCS)
+	@mkdir -p build
+	@printf '[\n' > $@
+	@for src in $(SRCS); do \
+		printf '  {"directory": "$(CURDIR)", "command": "$(CC) $(CFLAGS) -c '$$src'", "file": "'$$src'"},\n' >> $@; \
+	done
+	@for test_src in $(wildcard test/*.c); do \
+		printf '  {"directory": "$(CURDIR)", "command": "$(CC) $(CFLAGS) '$$test_src' build/libmizar.a", "file": "'$$test_src'"},\n' >> $@; \
+	done
+	@sed -i '$$ s/,$$//' $@
+	@printf ']\n' >> $@
 
 test: build/libmizar.a
 	@mkdir -p build
