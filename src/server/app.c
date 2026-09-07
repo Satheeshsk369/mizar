@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#define _DEFAULT_SOURCE
 #include "server/app.h"
 #include "ssg/fs.h"
 #include <stdio.h>
@@ -11,10 +12,22 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
-#include <sys/epoll.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <pthread.h>
+
+// Platform multiplexer selection
+#if defined(__linux__)
+  #define MZ_USE_EPOLL 1
+  #include <sys/epoll.h>
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+  #define MZ_USE_KQUEUE 1
+  #include <sys/event.h>
+  #include <sys/time.h>
+#else
+  #define MZ_USE_POLL 1
+  #include <poll.h>
+#endif
 
 #define MZ_MAX_EVENTS 512
 #define MZ_BUFFER_SIZE 8192
@@ -25,9 +38,17 @@ typedef struct {
     int worker_id;
 } MzWorkerContext;
 
+static int mz_set_nonblocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1) return -1;
+    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
 static int mz_create_listener_socket(int port) {
-    int server_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) return -1;
+
+    mz_set_nonblocking(server_fd);
 
     int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -263,17 +284,68 @@ void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res) {
     mz_buf_append_str(&res->body, "<h1>404 Not Found</h1><p>The requested route does not exist.</p>");
 }
 
-// Each worker thread runs its own independent epoll_wait loop on its dedicated listener socket
-static void *mz_epoll_worker(void *arg) {
+// Processes a client request, returns true if connection should remain alive
+static bool mz_process_client(MzApp *app, int client_fd) {
+    char req_buf[MZ_BUFFER_SIZE];
+    ssize_t bytes_read = recv(client_fd, req_buf, sizeof(req_buf) - 1, 0);
+    if (bytes_read <= 0) return false;
+
+    req_buf[bytes_read] = '\0';
+
+    MzRequest req;
+    if (!mz_http_parse_request(req_buf, bytes_read, &req)) {
+        return false;
+    }
+
+    MzResponse res;
+    mz_res_init(&res);
+
+    const char *conn_hdr = mz_req_header(&req, "Connection");
+    bool keep_alive = (conn_hdr && strcasecmp(conn_hdr, "keep-alive") == 0);
+
+    mz_app_handle(app, &req, &res);
+
+    MizarBuffer out;
+    mz_buf_init(&out, 2048);
+
+    mz_buf_printf(&out, "HTTP/1.1 %d %s\r\n", res.status_code, res.status_text);
+    bool has_content_length = false;
+    for (size_t h = 0; h < res.header_count; h++) {
+        if (strcasecmp(res.headers[h].key, "Content-Length") == 0) has_content_length = true;
+        mz_buf_printf(&out, "%s: %s\r\n", res.headers[h].key, res.headers[h].value);
+    }
+    if (!has_content_length) {
+        mz_buf_printf(&out, "Content-Length: %zu\r\n", res.body.len);
+    }
+    if (keep_alive) {
+        mz_buf_append_str(&out, "Connection: keep-alive\r\n\r\n");
+    } else {
+        mz_buf_append_str(&out, "Connection: close\r\n\r\n");
+    }
+    if (res.body.len > 0) {
+        mz_buf_append(&out, res.body.data, res.body.len);
+    }
+
+#if defined(__linux__)
+    send(client_fd, out.data, out.len, MSG_NOSIGNAL);
+#else
+    send(client_fd, out.data, out.len, 0);
+#endif
+
+    mz_buf_free(&out);
+    mz_res_free(&res);
+    mz_req_free(&req);
+
+    return keep_alive;
+}
+
+#if defined(MZ_USE_EPOLL)
+// Linux: epoll backend
+static void *mz_worker_loop(void *arg) {
     MzWorkerContext *wctx = (MzWorkerContext *)arg;
     MzApp *app = wctx->app;
-    int port = wctx->port;
-
-    int listener_fd = mz_create_listener_socket(port);
-    if (listener_fd < 0) {
-        fprintf(stderr, "[Worker %d] Failed to create listener socket\n", wctx->worker_id);
-        return nullptr;
-    }
+    int listener_fd = mz_create_listener_socket(wctx->port);
+    if (listener_fd < 0) return nullptr;
 
     int epoll_fd = epoll_create1(0);
     if (epoll_fd < 0) {
@@ -282,13 +354,9 @@ static void *mz_epoll_worker(void *arg) {
     }
 
     struct epoll_event ev;
-    ev.events = EPOLLIN | EPOLLET; // Edge-triggered on listener
+    ev.events = EPOLLIN | EPOLLET;
     ev.data.fd = listener_fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listener_fd, &ev) < 0) {
-        close(listener_fd);
-        close(epoll_fd);
-        return nullptr;
-    }
+    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listener_fd, &ev);
 
     struct epoll_event events[MZ_MAX_EVENTS];
 
@@ -296,18 +364,15 @@ static void *mz_epoll_worker(void *arg) {
         int nready = epoll_wait(epoll_fd, events, MZ_MAX_EVENTS, -1);
         for (int i = 0; i < nready; i++) {
             if (events[i].data.fd == listener_fd) {
-                // Drain incoming connections
                 while (1) {
                     struct sockaddr_in client_addr;
                     socklen_t client_len = sizeof(client_addr);
-                    int client_fd = accept4(listener_fd, (struct sockaddr *)&client_addr, &client_len, SOCK_NONBLOCK);
+                    int client_fd = accept(listener_fd, (struct sockaddr *)&client_addr, &client_len);
                     if (client_fd < 0) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                            break; // All connections drained
-                        }
+                        if (errno == EAGAIN || errno == EWOULDBLOCK) break;
                         break;
                     }
-
+                    mz_set_nonblocking(client_fd);
                     int nodelay = 1;
                     setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
 
@@ -318,73 +383,124 @@ static void *mz_epoll_worker(void *arg) {
                 }
             } else {
                 int client_fd = events[i].data.fd;
-                char req_buf[MZ_BUFFER_SIZE];
-                ssize_t bytes_read = recv(client_fd, req_buf, sizeof(req_buf) - 1, 0);
-
-                if (bytes_read > 0) {
-                    req_buf[bytes_read] = '\0';
-
-                    MzRequest req;
-                    if (mz_http_parse_request(req_buf, bytes_read, &req)) {
-                        MzResponse res;
-                        mz_res_init(&res);
-
-                        // Check keep-alive preference
-                        const char *conn_hdr = mz_req_header(&req, "Connection");
-                        bool keep_alive = (conn_hdr && strcasecmp(conn_hdr, "keep-alive") == 0);
-
-                        mz_app_handle(app, &req, &res);
-
-                        MizarBuffer out;
-                        mz_buf_init(&out, 2048);
-
-                        // Serialize with Keep-Alive or Close
-                        mz_buf_printf(&out, "HTTP/1.1 %d %s\r\n", res.status_code, res.status_text);
-                        bool has_content_length = false;
-                        for (size_t h = 0; h < res.header_count; h++) {
-                            if (strcasecmp(res.headers[h].key, "Content-Length") == 0) has_content_length = true;
-                            mz_buf_printf(&out, "%s: %s\r\n", res.headers[h].key, res.headers[h].value);
-                        }
-                        if (!has_content_length) {
-                            mz_buf_printf(&out, "Content-Length: %zu\r\n", res.body.len);
-                        }
-                        if (keep_alive) {
-                            mz_buf_append_str(&out, "Connection: keep-alive\r\n\r\n");
-                        } else {
-                            mz_buf_append_str(&out, "Connection: close\r\n\r\n");
-                        }
-                        if (res.body.len > 0) {
-                            mz_buf_append(&out, res.body.data, res.body.len);
-                        }
-
-                        // Send full buffer
-                        send(client_fd, out.data, out.len, MSG_NOSIGNAL);
-
-                        mz_buf_free(&out);
-                        mz_res_free(&res);
-                        mz_req_free(&req);
-
-                        if (keep_alive) {
-                            // Re-arm edge-triggered oneshot event for the next request on the same TCP connection
-                            struct epoll_event client_ev;
-                            client_ev.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
-                            client_ev.data.fd = client_fd;
-                            epoll_ctl(epoll_fd, EPOLL_CTL_MOD, client_fd, &client_ev);
-                            continue;
-                        }
-                    }
+                bool keep = mz_process_client(app, client_fd);
+                if (keep) {
+                    struct epoll_event client_ev;
+                    client_ev.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
+                    client_ev.data.fd = client_fd;
+                    epoll_ctl(epoll_fd, EPOLL_CTL_MOD, client_fd, &client_ev);
+                } else {
+                    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, nullptr);
+                    close(client_fd);
                 }
-                // Close on EOF, error, or non-keep-alive
-                epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, nullptr);
-                close(client_fd);
             }
         }
     }
-
     close(epoll_fd);
     close(listener_fd);
     return nullptr;
 }
+
+#elif defined(MZ_USE_KQUEUE)
+// macOS, FreeBSD, OpenBSD, NetBSD: kqueue backend
+static void *mz_worker_loop(void *arg) {
+    MzWorkerContext *wctx = (MzWorkerContext *)arg;
+    MzApp *app = wctx->app;
+    int listener_fd = mz_create_listener_socket(wctx->port);
+    if (listener_fd < 0) return nullptr;
+
+    int kq = kqueue();
+    if (kq < 0) {
+        close(listener_fd);
+        return nullptr;
+    }
+
+    struct kevent change;
+    EV_SET(&change, listener_fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, nullptr);
+    kevent(kq, &change, 1, nullptr, 0, nullptr);
+
+    struct kevent events[MZ_MAX_EVENTS];
+
+    while (1) {
+        int nready = kevent(kq, nullptr, 0, events, MZ_MAX_EVENTS, nullptr);
+        for (int i = 0; i < nready; i++) {
+            int fd = (int)events[i].ident;
+            if (fd == listener_fd) {
+                while (1) {
+                    struct sockaddr_in client_addr;
+                    socklen_t client_len = sizeof(client_addr);
+                    int client_fd = accept(listener_fd, (struct sockaddr *)&client_addr, &client_len);
+                    if (client_fd < 0) break;
+                    mz_set_nonblocking(client_fd);
+                    int nodelay = 1;
+                    setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+
+                    struct kevent client_change;
+                    EV_SET(&client_change, client_fd, EVFILT_READ, EV_ADD | EV_ENABLE | EV_ONESHOT, 0, 0, nullptr);
+                    kevent(kq, &client_change, 1, nullptr, 0, nullptr);
+                }
+            } else {
+                bool keep = mz_process_client(app, fd);
+                if (keep) {
+                    struct kevent client_change;
+                    EV_SET(&client_change, fd, EVFILT_READ, EV_ADD | EV_ENABLE | EV_ONESHOT, 0, 0, nullptr);
+                    kevent(kq, &client_change, 1, nullptr, 0, nullptr);
+                } else {
+                    close(fd);
+                }
+            }
+        }
+    }
+    close(kq);
+    close(listener_fd);
+    return nullptr;
+}
+
+#else
+// Generic POSIX: poll() fallback (Windows/WSL, Solaris, AIX, embedded POSIX)
+static void *mz_worker_loop(void *arg) {
+    MzWorkerContext *wctx = (MzWorkerContext *)arg;
+    MzApp *app = wctx->app;
+    int listener_fd = mz_create_listener_socket(wctx->port);
+    if (listener_fd < 0) return nullptr;
+
+    struct pollfd fds[MZ_MAX_EVENTS];
+    fds[0].fd = listener_fd;
+    fds[0].events = POLLIN;
+    int nfds = 1;
+
+    while (1) {
+        int nready = poll(fds, nfds, -1);
+        if (nready <= 0) continue;
+
+        if (fds[0].revents & POLLIN) {
+            struct sockaddr_in client_addr;
+            socklen_t client_len = sizeof(client_addr);
+            int client_fd = accept(listener_fd, (struct sockaddr *)&client_addr, &client_len);
+            if (client_fd >= 0 && nfds < MZ_MAX_EVENTS) {
+                mz_set_nonblocking(client_fd);
+                fds[nfds].fd = client_fd;
+                fds[nfds].events = POLLIN;
+                nfds++;
+            }
+        }
+
+        for (int i = 1; i < nfds; i++) {
+            if (fds[i].revents & POLLIN) {
+                bool keep = mz_process_client(app, fds[i].fd);
+                if (!keep) {
+                    close(fds[i].fd);
+                    fds[i] = fds[nfds - 1];
+                    nfds--;
+                    i--;
+                }
+            }
+        }
+    }
+    close(listener_fd);
+    return nullptr;
+}
+#endif
 
 bool mz_app_listen(MzApp *app, int port) {
     if (!app) return false;
@@ -400,12 +516,11 @@ bool mz_app_listen(MzApp *app, int port) {
         contexts[i].port = port;
         contexts[i].worker_id = i;
         if (i < num_threads - 1) {
-            pthread_create(&threads[i], nullptr, mz_epoll_worker, &contexts[i]);
+            pthread_create(&threads[i], nullptr, mz_worker_loop, &contexts[i]);
         }
     }
 
-    // Run the last worker directly on the main thread
-    mz_epoll_worker(&contexts[num_threads - 1]);
+    mz_worker_loop(&contexts[num_threads - 1]);
 
     for (int i = 0; i < num_threads - 1; i++) {
         pthread_join(threads[i], nullptr);
