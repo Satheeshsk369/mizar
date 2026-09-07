@@ -25,6 +25,8 @@ test: build/libmizar.a
 	@./build/test_ssg
 	$(CC) $(CFLAGS) test/test_server.c build/libmizar.a -o build/test_server
 	@./build/test_server
+	$(CC) $(CFLAGS) test/test_concurrency.c build/libmizar.a -o build/test_concurrency
+	@./build/test_concurrency
 
 clean:
 	rm -rf build
