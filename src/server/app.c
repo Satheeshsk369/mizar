@@ -391,7 +391,6 @@ bool mz_app_listen(MzApp *app, int port) {
     if (port <= 0) port = 3000;
 
     int num_threads = app->worker_threads > 0 ? app->worker_threads : 4;
-    printf("Mizar High-Throughput HTTP Engine (SO_REUSEPORT + epoll) on http://localhost:%d/ (%d workers)\n", port, num_threads);
 
     pthread_t *threads = (pthread_t *)malloc(num_threads * sizeof(pthread_t));
     MzWorkerContext *contexts = (MzWorkerContext *)malloc(num_threads * sizeof(MzWorkerContext));
