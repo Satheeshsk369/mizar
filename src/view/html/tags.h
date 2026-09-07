@@ -1,13 +1,12 @@
-#ifndef MIZAR_TAGS_H
-#define MIZAR_TAGS_H
+#ifndef MIZAR_VIEW_HTML_TAGS_H
+#define MIZAR_VIEW_HTML_TAGS_H
 
-#include "buffer.h"
-#include "attrs.h"
+#include "core/buffer.h"
+#include "view/html/attrs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 
-// Low-level tag helpers
 static inline void mz_tag_open(const char *tag, Attrs attrs) {
     MizarBuffer *buf = mz_context_get();
     if (!buf) return;
@@ -34,16 +33,11 @@ static inline void mz_void_tag(const char *tag, Attrs attrs) {
     mz_buf_append_str(buf, " />");
 }
 
-// Scoped container tag loop macro (runs once, emits open tag, user body, close tag)
 #define _MZ_TAG(tag_name, ...) \
     for (int _mz_i = (mz_tag_open(tag_name, (Attrs){ __VA_ARGS__ }), 0); \
          !_mz_i; \
          _mz_i = 1, mz_tag_close(tag_name))
 
-// ============================================================================
-// Root Document Macro: Html(buf, ...)
-// Pushes buffer into thread-local context stack and emits <!DOCTYPE html>
-// ============================================================================
 #define Html(buf, ...) \
     for (int _mz_doc = (mz_context_push(buf), \
                         mz_buf_append_str(buf, "<!DOCTYPE html>\n"), \
@@ -51,16 +45,12 @@ static inline void mz_void_tag(const char *tag, Attrs attrs) {
          !_mz_doc; \
          _mz_doc = 1, mz_tag_close("html"), mz_context_pop())
 
-// ============================================================================
-// Text, Raw HTML, and Streaming Boundary Helpers
-// ============================================================================
 static inline void Text(const char *fmt, ...) {
     MizarBuffer *buf = mz_context_get();
     if (!buf || !fmt) return;
     va_list args;
     va_start(args, fmt);
     
-    // Format into temporary stack or allocated string, then escape
     char stack_buf[512];
     va_list copy;
     va_copy(copy, args);
@@ -88,15 +78,23 @@ static inline void Raw(const char *raw_html) {
     mz_buf_append_str(buf, raw_html);
 }
 
+static inline void Comment(const char *fmt, ...) {
+    MizarBuffer *buf = mz_context_get();
+    if (!buf || !fmt) return;
+    mz_buf_append_str(buf, "<!-- ");
+    va_list args;
+    va_start(args, fmt);
+    mz_buf_vprintf(buf, fmt, args);
+    va_end(args);
+    mz_buf_append_str(buf, " -->\n");
+}
+
 static inline bool Flush(void) {
     MizarBuffer *buf = mz_context_get();
     if (!buf) return false;
     return mz_buf_flush(buf);
 }
 
-// ============================================================================
-// 13 WHATWG Void Elements (Statements)
-// ============================================================================
 #define Area(...)   mz_void_tag("area",   (Attrs){ __VA_ARGS__ })
 #define Base(...)   mz_void_tag("base",   (Attrs){ __VA_ARGS__ })
 #define Br(...)     mz_void_tag("br",     (Attrs){ __VA_ARGS__ })
@@ -111,9 +109,6 @@ static inline bool Flush(void) {
 #define Track(...)  mz_void_tag("track",  (Attrs){ __VA_ARGS__ })
 #define Wbr(...)    mz_void_tag("wbr",    (Attrs){ __VA_ARGS__ })
 
-// ============================================================================
-// 100 WHATWG Container Elements (Scoped Blocks)
-// ============================================================================
 #define A(...)               _MZ_TAG("a",               __VA_ARGS__)
 #define Abbr(...)            _MZ_TAG("abbr",            __VA_ARGS__)
 #define Address(...)         _MZ_TAG("address",         __VA_ARGS__)
@@ -214,4 +209,4 @@ static inline bool Flush(void) {
 #define Var(...)             _MZ_TAG("var",             __VA_ARGS__)
 #define Video(...)           _MZ_TAG("video",           __VA_ARGS__)
 
-#endif // MIZAR_TAGS_H
+#endif

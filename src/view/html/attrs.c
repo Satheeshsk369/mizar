@@ -1,4 +1,4 @@
-#include "attrs.h"
+#include "view/html/attrs.h"
 #include <string.h>
 
 static inline void mz_render_attr_str(MizarBuffer *buf, const char *name, const char *val) {
@@ -19,7 +19,6 @@ static inline void mz_render_attr_bool(MizarBuffer *buf, const char *name, bool 
 void mz_render_attrs(MizarBuffer *buf, Attrs attrs) {
     if (!buf) return;
     
-    // Globals
     mz_render_attr_str(buf, "id", attrs.id);
     mz_render_attr_str(buf, "class", attrs.cls);
     mz_render_attr_str(buf, "style", attrs.style);
@@ -29,7 +28,6 @@ void mz_render_attrs(MizarBuffer *buf, Attrs attrs) {
     mz_render_attr_str(buf, "tabindex", attrs.tabindex);
     mz_render_attr_str(buf, "role", attrs.role);
     
-    // Links & Media
     mz_render_attr_str(buf, "href", attrs.href);
     mz_render_attr_str(buf, "src", attrs.src);
     mz_render_attr_str(buf, "alt", attrs.alt);
@@ -41,7 +39,6 @@ void mz_render_attrs(MizarBuffer *buf, Attrs attrs) {
     mz_render_attr_str(buf, "height", attrs.height);
     mz_render_attr_str(buf, "loading", attrs.loading);
     
-    // Forms & Inputs
     mz_render_attr_str(buf, "action", attrs.action);
     mz_render_attr_str(buf, "method", attrs.method);
     mz_render_attr_str(buf, "name", attrs.name);
@@ -54,11 +51,9 @@ void mz_render_attrs(MizarBuffer *buf, Attrs attrs) {
     mz_render_attr_str(buf, "step", attrs.step);
     mz_render_attr_str(buf, "enctype", attrs.enctype);
     
-    // Metadata
     mz_render_attr_str(buf, "charset", attrs.charset);
     mz_render_attr_str(buf, "content", attrs.content);
     
-    // HTMX
     mz_render_attr_str(buf, "hx-get", attrs.hx_get);
     mz_render_attr_str(buf, "hx-post", attrs.hx_post);
     mz_render_attr_str(buf, "hx-put", attrs.hx_put);
@@ -68,7 +63,6 @@ void mz_render_attrs(MizarBuffer *buf, Attrs attrs) {
     mz_render_attr_str(buf, "hx-swap", attrs.hx_swap);
     mz_render_attr_str(buf, "hx-trigger", attrs.hx_trigger);
     
-    // Booleans
     mz_render_attr_bool(buf, "disabled", attrs.disabled);
     mz_render_attr_bool(buf, "checked", attrs.checked);
     mz_render_attr_bool(buf, "required", attrs.required);
@@ -80,7 +74,6 @@ void mz_render_attrs(MizarBuffer *buf, Attrs attrs) {
     mz_render_attr_bool(buf, "defer", attrs.defer);
     mz_render_attr_bool(buf, "async", attrs.async);
     
-    // Custom / Arbitrary (e.g. data-* or raw attributes)
     if (attrs.custom && *attrs.custom) {
         mz_buf_append_char(buf, ' ');
         mz_buf_append_str(buf, attrs.custom);

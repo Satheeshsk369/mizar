@@ -1,4 +1,4 @@
-#include "buffer.h"
+#include "core/buffer.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -76,7 +76,6 @@ bool mz_buf_flush(MizarBuffer *buf) {
 static bool mz_buf_ensure_space(MizarBuffer *buf, size_t extra) {
     if (!buf || buf->has_error) return false;
     
-    // Check if chunked streaming threshold reached
     if (buf->chunk_threshold > 0 && buf->len >= buf->chunk_threshold && buf->flush_fn) {
         if (!mz_buf_flush(buf)) return false;
     }
@@ -144,12 +143,6 @@ void mz_buf_vprintf(MizarBuffer *buf, const char *fmt, va_list args) {
     buf->len += (size_t)needed;
 }
 
-// Escapes:
-// & -> &amp;
-// < -> &lt;
-// > -> &gt;
-// " -> &quot;
-// ' -> &#39;
 void mz_buf_append_escaped(MizarBuffer *buf, const char *str, size_t len) {
     if (!buf || !str || len == 0 || buf->has_error) return;
     
