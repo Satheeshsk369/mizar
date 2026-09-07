@@ -10,6 +10,5 @@ typedef struct {
 } HTMLDocument;
 
 void format_html(const HTMLDocument *d, int width);
-HTMLDocument parse_html(const char *s[]);
 
 #endif 

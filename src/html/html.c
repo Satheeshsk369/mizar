@@ -9,8 +9,4 @@ void format_html(const HTMLDocument *d, int width) {
     printf("</html>\n");
 }
 
-HTMLDocument parse_html(const char *s[]) {
-    HTMLDocument doc;
-    return doc;
-}
 
