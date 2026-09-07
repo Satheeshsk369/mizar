@@ -21,6 +21,10 @@ test: build/libmizar.a
 	@mkdir -p build
 	$(CC) $(CFLAGS) test/test_main.c build/libmizar.a -o build/test_main
 	@./build/test_main
+	$(CC) $(CFLAGS) test/test_ssg.c build/libmizar.a -o build/test_ssg
+	@./build/test_ssg
+	$(CC) $(CFLAGS) test/test_server.c build/libmizar.a -o build/test_server
+	@./build/test_server
 
 clean:
 	rm -rf build

@@ -2,6 +2,8 @@
 #define MIZAR_H
 
 #include "core/buffer.h"
+#include "core/url.h"
+#include "core/livereload.h"
 #include "view/html/attrs.h"
 #include "view/html/tags.h"
 #include "view/svg/attrs.h"
@@ -9,6 +11,11 @@
 #include "view/mathml/attrs.h"
 #include "view/mathml/tags.h"
 #include "view/css/rules.h"
+#include "ssg/fs.h"
+#include "ssg/site.h"
+#include "ssg/components.h"
+#include "server/http.h"
+#include "server/app.h"
 
 // HTMX Convenience macros for HTML Attrs
 #define HxGet(url)        .hx_get = (url)

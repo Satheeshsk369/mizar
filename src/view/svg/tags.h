@@ -35,7 +35,14 @@ static inline void mz_svg_void_tag(const char *tag, SvgAttrs attrs) {
          !_mz_s_i; \
          _mz_s_i = 1, mz_svg_tag_close(tag_name))
 
-// Root & Container elements
+// Root element with buffer context push/pop support (when used standalone)
+#define SvgDoc(buf, ...) \
+    for (int _mz_sdoc = (mz_context_push(buf), \
+                         mz_svg_tag_open("svg", (SvgAttrs){ .xmlns = "http://www.w3.org/2000/svg", __VA_ARGS__ }), 0); \
+         !_mz_sdoc; \
+         _mz_sdoc = 1, mz_svg_tag_close("svg"), mz_context_pop())
+
+// Root & Container elements (when embedded in Html or another Svg element)
 #define Svg(...)                 _MZ_SVG_TAG("svg",                 __VA_ARGS__)
 #define Svg_G(...)               _MZ_SVG_TAG("g",                   __VA_ARGS__)
 #define Svg_Defs(...)            _MZ_SVG_TAG("defs",                __VA_ARGS__)

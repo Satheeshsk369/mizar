@@ -1,0 +1,316 @@
+#include "server/http.h"
+#include "core/url.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+static char *mz_strndup(const char *s, size_t n) {
+    char *p = (char *)malloc(n + 1);
+    if (!p) return nullptr;
+    memcpy(p, s, n);
+    p[n] = '\0';
+    return p;
+}
+
+static int mz_strcasecmp(const char *s1, const char *s2) {
+    while (*s1 && *s2) {
+        int diff = tolower((unsigned char)*s1) - tolower((unsigned char)*s2);
+        if (diff != 0) return diff;
+        s1++;
+        s2++;
+    }
+    return tolower((unsigned char)*s1) - tolower((unsigned char)*s2);
+}
+
+const char *mz_req_header(const MzRequest *req, const char *key) {
+    if (!req || !key) return nullptr;
+    for (size_t i = 0; i < req->header_count; i++) {
+        if (mz_strcasecmp(req->headers[i].key, key) == 0) {
+            return req->headers[i].value;
+        }
+    }
+    return nullptr;
+}
+
+const char *mz_req_param(const MzRequest *req, const char *key) {
+    if (!req || !key) return nullptr;
+    for (size_t i = 0; i < req->param_count; i++) {
+        if (strcmp(req->params[i].key, key) == 0) {
+            return req->params[i].value;
+        }
+    }
+    return nullptr;
+}
+
+const char *mz_req_query(const MzRequest *req, const char *key) {
+    if (!req || !key) return nullptr;
+    for (size_t i = 0; i < req->query_count; i++) {
+        if (strcmp(req->queries[i].key, key) == 0) {
+            return req->queries[i].value;
+        }
+    }
+    return nullptr;
+}
+
+const char *mz_req_form(const MzRequest *req, const char *key) {
+    if (!req || !key) return nullptr;
+    for (size_t i = 0; i < req->form_count; i++) {
+        if (strcmp(req->forms[i].key, key) == 0) {
+            return req->forms[i].value;
+        }
+    }
+    return nullptr;
+}
+
+bool mz_req_is_htmx(const MzRequest *req) {
+    const char *val = mz_req_header(req, "HX-Request");
+    return (val != nullptr && strcmp(val, "true") == 0);
+}
+
+bool mz_req_is_htmx_boosted(const MzRequest *req) {
+    const char *val = mz_req_header(req, "HX-Boosted");
+    return (val != nullptr && strcmp(val, "true") == 0);
+}
+
+const char *mz_req_htmx_target(const MzRequest *req) {
+    return mz_req_header(req, "HX-Target");
+}
+
+const char *mz_req_htmx_trigger(const MzRequest *req) {
+    return mz_req_header(req, "HX-Trigger");
+}
+
+const char *mz_req_htmx_trigger_name(const MzRequest *req) {
+    return mz_req_header(req, "HX-Trigger-Name");
+}
+
+const char *mz_req_htmx_prompt(const MzRequest *req) {
+    return mz_req_header(req, "HX-Prompt");
+}
+
+void mz_res_init(MzResponse *res) {
+    if (!res) return;
+    res->status_code = 200;
+    res->status_text = "OK";
+    res->header_count = 0;
+    mz_buf_init(&res->body, 1024);
+}
+
+void mz_res_free(MzResponse *res) {
+    if (!res) return;
+    for (size_t i = 0; i < res->header_count; i++) {
+        free(res->headers[i].key);
+        free(res->headers[i].value);
+    }
+    res->header_count = 0;
+    mz_buf_free(&res->body);
+}
+
+void mz_res_status(MzResponse *res, int code, const char *text) {
+    if (!res) return;
+    res->status_code = code;
+    res->status_text = text ? text : "OK";
+}
+
+void mz_res_header(MzResponse *res, const char *key, const char *val) {
+    if (!res || !key || !val || res->header_count >= MZ_HTTP_MAX_HEADERS) return;
+    res->headers[res->header_count].key = strdup(key);
+    res->headers[res->header_count].value = strdup(val);
+    res->header_count++;
+}
+
+void mz_res_content_type(MzResponse *res, const char *mime) {
+    mz_res_header(res, "Content-Type", mime);
+}
+
+void mz_res_html(MzResponse *res) {
+    mz_res_content_type(res, "text/html; charset=utf-8");
+}
+
+void mz_res_json(MzResponse *res) {
+    mz_res_content_type(res, "application/json");
+}
+
+// HTMX Response Modifiers
+void mz_res_retarget(MzResponse *res, const char *target_selector) {
+    mz_res_header(res, "HX-Retarget", target_selector);
+}
+
+void mz_res_reswap(MzResponse *res, const char *swap_style) {
+    mz_res_header(res, "HX-Reswap", swap_style);
+}
+
+void mz_res_push_url(MzResponse *res, const char *url) {
+    mz_res_header(res, "HX-Push-Url", url);
+}
+
+void mz_res_replace_url(MzResponse *res, const char *url) {
+    mz_res_header(res, "HX-Replace-Url", url);
+}
+
+void mz_res_refresh(MzResponse *res) {
+    mz_res_header(res, "HX-Refresh", "true");
+}
+
+void mz_res_redirect(MzResponse *res, const char *url) {
+    mz_res_header(res, "HX-Redirect", url);
+}
+
+void mz_res_trigger(MzResponse *res, const char *event_name) {
+    mz_res_header(res, "HX-Trigger", event_name);
+}
+
+void mz_res_trigger_after_swap(MzResponse *res, const char *event_name) {
+    mz_res_header(res, "HX-Trigger-After-Swap", event_name);
+}
+
+void mz_res_trigger_after_settle(MzResponse *res, const char *event_name) {
+    mz_res_header(res, "HX-Trigger-After-Settle", event_name);
+}
+
+static void mz_parse_kv_string(const char *qs, MzParam *arr, size_t *count, size_t max_count) {
+    if (!qs || !*qs || !arr || !count) return;
+    const char *p = qs;
+    while (*p && *count < max_count) {
+        const char *eq = strchr(p, '=');
+        const char *amp = strchr(p, '&');
+        if (!amp) amp = p + strlen(p);
+
+        if (eq && eq < amp) {
+            char *raw_k = mz_strndup(p, eq - p);
+            char *raw_v = mz_strndup(eq + 1, amp - (eq + 1));
+            arr[*count].key = mz_url_decode(raw_k, strlen(raw_k), true);
+            arr[*count].value = mz_url_decode(raw_v, strlen(raw_v), true);
+            free(raw_k);
+            free(raw_v);
+            (*count)++;
+        } else {
+            char *raw_k = mz_strndup(p, amp - p);
+            arr[*count].key = mz_url_decode(raw_k, strlen(raw_k), true);
+            arr[*count].value = strdup("");
+            free(raw_k);
+            (*count)++;
+        }
+
+        if (*amp == '&') p = amp + 1;
+        else break;
+    }
+}
+
+bool mz_http_parse_request(const char *raw, size_t raw_len, MzRequest *req) {
+    if (!raw || !req || raw_len == 0) return false;
+    memset(req, 0, sizeof(MzRequest));
+
+    const char *line_end = strstr(raw, "\r\n");
+    if (!line_end) return false;
+
+    // 1. Request Line: METHOD PATH[?QUERY] PROTO
+    char method[16], url[1024];
+    if (sscanf(raw, "%15s %1023s", method, url) < 2) {
+        return false;
+    }
+    req->method = strdup(method);
+
+    char *q = strchr(url, '?');
+    if (q) {
+        req->path = mz_strndup(url, q - url);
+        req->query_string = strdup(q + 1);
+        mz_parse_kv_string(req->query_string, req->queries, &req->query_count, MZ_HTTP_MAX_PARAMS);
+    } else {
+        req->path = strdup(url);
+        req->query_string = strdup("");
+    }
+
+    // 2. Headers
+    const char *p = line_end + 2;
+    while (*p && req->header_count < MZ_HTTP_MAX_HEADERS) {
+        if (p[0] == '\r' && p[1] == '\n') {
+            p += 2; // End of headers
+            break;
+        }
+        const char *next_crlf = strstr(p, "\r\n");
+        if (!next_crlf) break;
+
+        const char *colon = strchr(p, ':');
+        if (colon && colon < next_crlf) {
+            req->headers[req->header_count].key = mz_strndup(p, colon - p);
+            
+            // Skip colon and leading spaces
+            const char *val_start = colon + 1;
+            while (val_start < next_crlf && (*val_start == ' ' || *val_start == '\t')) {
+                val_start++;
+            }
+            req->headers[req->header_count].value = mz_strndup(val_start, next_crlf - val_start);
+            req->header_count++;
+        }
+        p = next_crlf + 2;
+    }
+
+    // 3. Body
+    size_t header_len = p - raw;
+    if (raw_len > header_len) {
+        req->body_len = raw_len - header_len;
+        req->body = mz_strndup(p, req->body_len);
+
+        // Check if application/x-www-form-urlencoded
+        const char *ct = mz_req_header(req, "Content-Type");
+        if (ct && strstr(ct, "application/x-www-form-urlencoded")) {
+            mz_parse_kv_string(req->body, req->forms, &req->form_count, MZ_HTTP_MAX_PARAMS);
+        }
+    } else {
+        req->body = nullptr;
+        req->body_len = 0;
+    }
+
+    return true;
+}
+
+void mz_req_free(MzRequest *req) {
+    if (!req) return;
+    free(req->method);
+    free(req->path);
+    free(req->query_string);
+    free(req->body);
+
+    for (size_t i = 0; i < req->header_count; i++) {
+        free(req->headers[i].key);
+        free(req->headers[i].value);
+    }
+    for (size_t i = 0; i < req->param_count; i++) {
+        free(req->params[i].key);
+        free(req->params[i].value);
+    }
+    for (size_t i = 0; i < req->query_count; i++) {
+        free(req->queries[i].key);
+        free(req->queries[i].value);
+    }
+    for (size_t i = 0; i < req->form_count; i++) {
+        free(req->forms[i].key);
+        free(req->forms[i].value);
+    }
+    memset(req, 0, sizeof(MzRequest));
+}
+
+void mz_res_serialize(const MzResponse *res, MizarBuffer *out) {
+    if (!res || !out) return;
+
+    mz_buf_printf(out, "HTTP/1.1 %d %s\r\n", res->status_code, res->status_text);
+
+    bool has_content_length = false;
+    for (size_t i = 0; i < res->header_count; i++) {
+        if (mz_strcasecmp(res->headers[i].key, "Content-Length") == 0) {
+            has_content_length = true;
+        }
+        mz_buf_printf(out, "%s: %s\r\n", res->headers[i].key, res->headers[i].value);
+    }
+
+    if (!has_content_length) {
+        mz_buf_printf(out, "Content-Length: %zu\r\n", res->body.len);
+    }
+    mz_buf_append_str(out, "Connection: close\r\n\r\n");
+
+    if (res->body.len > 0) {
+        mz_buf_append(out, res->body.data, res->body.len);
+    }
+}

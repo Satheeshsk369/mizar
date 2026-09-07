@@ -35,7 +35,14 @@ static inline void mz_math_void_tag(const char *tag, MathAttrs attrs) {
          !_mz_m_i; \
          _mz_m_i = 1, mz_math_tag_close(tag_name))
 
-// Top-level MathML container
+// Standalone MathML document support with buffer context push/pop
+#define MathDoc(buf, ...) \
+    for (int _mz_mdoc = (mz_context_push(buf), \
+                         mz_math_tag_open("math", (MathAttrs){ .xmlns = "http://www.w3.org/1998/Math/MathML", __VA_ARGS__ }), 0); \
+         !_mz_mdoc; \
+         _mz_mdoc = 1, mz_math_tag_close("math"), mz_context_pop())
+
+// Top-level MathML container (embedded in Html)
 #define Math(...)             _MZ_MATH_TAG("math",             __VA_ARGS__)
 
 // Token elements
