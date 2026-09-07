@@ -17,7 +17,12 @@ build/%.o: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+test: build/libmizar.a
+	@mkdir -p build
+	$(CC) $(CFLAGS) test/test_main.c build/libmizar.a -o build/test_main
+	@./build/test_main
+
 clean:
 	rm -rf build
 
-.PHONY: all clean
+.PHONY: all clean test
