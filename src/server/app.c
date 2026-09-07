@@ -44,6 +44,17 @@ static int mz_set_nonblocking(int fd) {
     return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
+static inline void mz_configure_client_socket(int client_fd) {
+    mz_set_nonblocking(client_fd);
+    int nodelay = 1;
+    setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+
+    // Defense: 10-second socket timeout against Slowloris attacks
+    struct timeval timeout = { .tv_sec = 10, .tv_usec = 0 };
+    setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(client_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+}
+
 static int mz_create_listener_socket(int port) {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) return -1;
@@ -241,26 +252,51 @@ void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res) {
             const char *subpath = req->path + prefix_len;
             while (*subpath == '/') subpath++;
 
+            // Strict path traversal defense: forbid any ".." components
+            if (strstr(subpath, "..")) {
+                mz_res_status(res, 403, "Forbidden");
+                mz_res_html(res);
+                mz_buf_append_str(&res->body, "<h1>403 Forbidden</h1><p>Path traversal detected.</p>");
+                return;
+            }
+
             char filepath[1024];
             snprintf(filepath, sizeof(filepath), "%s/%s", app->static_dir, subpath);
 
-            FILE *f = fopen(filepath, "rb");
-            if (f) {
-                fseek(f, 0, SEEK_END);
-                long fsize = ftell(f);
-                fseek(f, 0, SEEK_SET);
-
-                mz_res_status(res, 200, "OK");
-                mz_res_content_type(res, mz_mime_type_for_file(filepath));
-
-                char *buf = (char *)malloc(fsize);
-                if (buf) {
-                    size_t rd = fread(buf, 1, fsize, f);
-                    mz_buf_append(&res->body, buf, rd);
-                    free(buf);
+            // Canonical path check via realpath
+            char canonical_base[1024];
+            char canonical_file[1024];
+            if (realpath(app->static_dir, canonical_base) && realpath(filepath, canonical_file)) {
+                size_t base_len = strlen(canonical_base);
+                if (strncmp(canonical_file, canonical_base, base_len) != 0 ||
+                    (canonical_file[base_len] != '/' && canonical_file[base_len] != '\0')) {
+                    mz_res_status(res, 403, "Forbidden");
+                    mz_res_html(res);
+                    mz_buf_append_str(&res->body, "<h1>403 Forbidden</h1><p>Access denied.</p>");
+                    return;
                 }
-                fclose(f);
-                return;
+
+                FILE *f = fopen(canonical_file, "rb");
+                if (f) {
+                    fseek(f, 0, SEEK_END);
+                    long fsize = ftell(f);
+                    fseek(f, 0, SEEK_SET);
+
+                    mz_res_status(res, 200, "OK");
+                    mz_res_content_type(res, mz_mime_type_for_file(canonical_file));
+
+                    // Limit static file memory allocation to 64MB max to prevent memory exhaustion
+                    if (fsize > 0 && fsize < 64 * 1024 * 1024) {
+                        char *buf = (char *)malloc(fsize);
+                        if (buf) {
+                            size_t rd = fread(buf, 1, fsize, f);
+                            mz_buf_append(&res->body, buf, rd);
+                            free(buf);
+                        }
+                    }
+                    fclose(f);
+                    return;
+                }
             }
         }
     }
@@ -372,9 +408,7 @@ static void *mz_worker_loop(void *arg) {
                         if (errno == EAGAIN || errno == EWOULDBLOCK) break;
                         break;
                     }
-                    mz_set_nonblocking(client_fd);
-                    int nodelay = 1;
-                    setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+                    mz_configure_client_socket(client_fd);
 
                     struct epoll_event client_ev;
                     client_ev.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
@@ -431,9 +465,7 @@ static void *mz_worker_loop(void *arg) {
                     socklen_t client_len = sizeof(client_addr);
                     int client_fd = accept(listener_fd, (struct sockaddr *)&client_addr, &client_len);
                     if (client_fd < 0) break;
-                    mz_set_nonblocking(client_fd);
-                    int nodelay = 1;
-                    setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+                    mz_configure_client_socket(client_fd);
 
                     struct kevent client_change;
                     EV_SET(&client_change, client_fd, EVFILT_READ, EV_ADD | EV_ENABLE | EV_ONESHOT, 0, 0, nullptr);

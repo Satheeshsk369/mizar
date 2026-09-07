@@ -86,6 +86,8 @@ test: build/libmizar.a
 	@./build/test_concurrency
 	@$(CC) $(CFLAGS) test/test_equation.c build/libmizar.a -o build/test_equation
 	@./build/test_equation
+	@$(CC) $(CFLAGS) test/test_components.c build/libmizar.a -o build/test_components
+	@./build/test_components
 	@echo "All tests passed cleanly."
 
 install: all

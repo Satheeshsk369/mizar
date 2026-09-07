@@ -165,6 +165,14 @@ bool mz_site_serve(const char *dir, int port) {
         char *q = strchr(url_path, '?');
         if (q) *q = '\0';
 
+        // Path traversal defense
+        if (strstr(url_path, "..")) {
+            const char *forbidden = "HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: 9\r\nConnection: close\r\n\r\nForbidden";
+            send(client_fd, forbidden, strlen(forbidden), 0);
+            close(client_fd);
+            continue;
+        }
+
         char file_path[1024];
         mz_fs_route_to_filepath(dir, url_path, file_path, sizeof(file_path));
 

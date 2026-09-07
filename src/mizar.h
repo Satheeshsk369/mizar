@@ -14,6 +14,7 @@
 #include "view/equation.h"
 #include "view/component.h"
 #include "view/css/rules.h"
+#include "components/components.h"
 #include "ssg/fs.h"
 #include "ssg/site.h"
 #include "ssg/components.h"
