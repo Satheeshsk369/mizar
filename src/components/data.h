@@ -12,7 +12,7 @@ typedef struct {
     bool rounded; // true = circle, false = rounded rect
 } UiAvatarProps;
 
-static inline void UiAvatar(UiAvatarProps p) {
+static inline void mz_render_ui_avatar(UiAvatarProps p) {
     int sz = p.size_px > 0 ? p.size_px : 40;
     const char *radius = (p.rounded || (!p.rounded && !p.initials)) ? "50%" : "6px";
     char style[256];
@@ -29,6 +29,8 @@ static inline void UiAvatar(UiAvatarProps p) {
     }
 }
 
+#define UiAvatar(...) mz_render_ui_avatar((UiAvatarProps){ __VA_ARGS__ })
+
 // 2. Metric / Statistic: Big KPI number display
 typedef struct {
     const char *label;
@@ -38,7 +40,7 @@ typedef struct {
     const char *subtext;
 } UiMetricProps;
 
-static inline void UiMetric(UiMetricProps p) {
+static inline void mz_render_ui_metric(UiMetricProps p) {
     Div(.cls = "mz-metric", .style = "background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);") {
         if (p.label) {
             Div(.style = "font-size: 0.875rem; color: #64748b; font-weight: 600; margin-bottom: 6px;") {
@@ -64,6 +66,8 @@ static inline void UiMetric(UiMetricProps p) {
     }
 }
 
+#define UiMetric(...) mz_render_ui_metric((UiMetricProps){ __VA_ARGS__ })
+
 // 3. Progress Bar
 typedef struct {
     int percent; // 0 to 100
@@ -71,7 +75,7 @@ typedef struct {
     int height_px; // default 8
 } UiProgressProps;
 
-static inline void UiProgress(UiProgressProps p) {
+static inline void mz_render_ui_progress(UiProgressProps p) {
     int val = p.percent < 0 ? 0 : (p.percent > 100 ? 100 : p.percent);
     int h = p.height_px > 0 ? p.height_px : 8;
     const char *c = p.color ? p.color : "#0284c7";
@@ -86,6 +90,8 @@ static inline void UiProgress(UiProgressProps p) {
         Div(.style = bar_style) {}
     }
 }
+
+#define UiProgress(...) mz_render_ui_progress((UiProgressProps){ __VA_ARGS__ })
 
 // 4. Empty State: Empty list / search graphic placeholder
 typedef struct {

@@ -32,6 +32,11 @@ DOCS_SRCS = $(wildcard docs/*.c)
 
 all: $(LIB_STATIC) $(LIB_SHARED) build/mizar.pc build/compile_commands.json
 
+showcase: $(LIB_STATIC)
+	@mkdir -p build
+	@$(CC) $(CFLAGS) examples/showcase.c $(LIB_STATIC) -o build/showcase
+	@./build/showcase 4000
+
 doc-build: $(LIB_STATIC)
 	@mkdir -p build/docs
 	@$(CC) $(CFLAGS) -Idocs docs/main.c $(LIB_STATIC) -o build/docs_builder
@@ -114,4 +119,4 @@ uninstall:
 clean:
 	rm -rf build
 
-.PHONY: all clean test install uninstall doc-build doc-serve
+.PHONY: all clean test install uninstall doc-build doc-serve showcase

@@ -24,4 +24,7 @@
 // Navigation
 #include "components/nav.h"
 
+// Extended UI Primitives (Forms, Overlays, Marketing, HTMX)
+#include "components/extended.h"
+
 #endif

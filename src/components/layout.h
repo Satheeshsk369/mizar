@@ -78,7 +78,7 @@ typedef struct {
     const char *cls;
 } UiDividerProps;
 
-static inline void UiDivider(UiDividerProps p) {
+static inline void mz_render_ui_divider(UiDividerProps p) {
     if (p.vertical) {
         Div(.cls = p.cls ? p.cls : "mz-divider-v", .style = "display: inline-block; width: 1px; background: #e2e8f0; height: 1.25em; vertical-align: middle; margin: 0 8px;") {}
     } else if (p.label) {
@@ -91,6 +91,8 @@ static inline void UiDivider(UiDividerProps p) {
         Hr(.cls = p.cls ? p.cls : "mz-divider", .style = "border: 0; border-top: 1px solid #e2e8f0; margin: 16px 0;");
     }
 }
+
+#define UiDivider(...) mz_render_ui_divider((UiDividerProps){ __VA_ARGS__ })
 
 // 5. Paper / Surface: Elevated container with shadow
 typedef struct {

@@ -86,6 +86,35 @@ int main(void) {
         A(.href = "/docs") { Text("Docs"); }
     }
 
+    // 9. Extended: UiCheckbox, UiSwitch, UiTextarea, UiSelect, UiTooltip, UiToast, UiHero, UiTestimonial, UiPricing, UiLiveSearch
+    UiCheckbox(.label = "Remember me", .name = "remember", .checked = true);
+    UiSwitch(.label = "Dark Mode", .name = "dark_mode");
+    UiTextarea(.label = "Bio", .name = "bio", .placeholder = "About yourself...");
+
+    UiSelectOption options[] = {
+        { .label = "Admin", .val = "admin" },
+        { .label = "Member", .val = "member", .selected = true }
+    };
+    UiSelect(.label = "Role", .name = "role", .options = options, .option_count = 2);
+
+    UiTooltip("Detailed explanation here") {
+        Text("Hover for info");
+    }
+    UiToast(.title = "Saved", .message = "Preferences updated.", .success = true);
+
+    UiHero(.badge = "New Release", .title = "Build Fast Web in C23", .tagline = "The declarative C framework.") {
+        UiBtn("Get Started", .variant = BTN_PRIMARY);
+    }
+
+    UiTestimonial(.quote = "Mizar changed how we view backend web performance in C.", .author = "Jane Doe", .role = "Principal Architect", .avatar_initials = "JD");
+
+    UiPricing(.plan = "Pro Plan", .price = "$29", .period = "/mo", .popular = true) {
+        Li() { Text("Unlimited requests"); }
+        Li() { Text("24/7 Support"); }
+    }
+
+    UiLiveSearch(.placeholder = "Search users...", .hx_post_url = "/api/search", .hx_target = "#search-results");
+
     mz_context_pop();
 
     // Assertions across all component categories
@@ -114,6 +143,16 @@ int main(void) {
     assert(strstr(buf.data, "aria-label=\"Breadcrumb\"") != NULL);
     assert(strstr(buf.data, "aria-label=\"Pagination\"") != NULL);
     assert(strstr(buf.data, "class=\"mz-navbar\"") != NULL);
+
+    // Extended assertions
+    assert(strstr(buf.data, "type=\"checkbox\"") != NULL);
+    assert(strstr(buf.data, "Remember me") != NULL);
+    assert(strstr(buf.data, "class=\"mz-toast\"") != NULL);
+    assert(strstr(buf.data, "class=\"mz-hero\"") != NULL);
+    assert(strstr(buf.data, "class=\"mz-testimonial\"") != NULL);
+    assert(strstr(buf.data, "class=\"mz-pricing-card\"") != NULL);
+    assert(strstr(buf.data, "type=\"search\"") != NULL);
+    assert(strstr(buf.data, "keyup changed delay:300ms") != NULL);
 
     mz_buf_free(&buf);
     printf("Complete UI Component Suite (all categories) tested and passed cleanly!\n");

@@ -9,7 +9,7 @@ typedef struct {
     const char *color; // default #0284c7
 } UiSpinnerProps;
 
-static inline void UiSpinner(UiSpinnerProps p) {
+static inline void mz_render_ui_spinner(UiSpinnerProps p) {
     int sz = p.size_px > 0 ? p.size_px : 24;
     const char *c = p.color ? p.color : "#0284c7";
 
@@ -21,6 +21,8 @@ static inline void UiSpinner(UiSpinnerProps p) {
     Div(.cls = "mz-spinner", .style = style) {}
 }
 
+#define UiSpinner(...) mz_render_ui_spinner((UiSpinnerProps){ __VA_ARGS__ })
+
 // 2. Skeleton: Placeholder loader block
 typedef struct {
     int width_px;
@@ -29,7 +31,7 @@ typedef struct {
     bool circle;
 } UiSkeletonProps;
 
-static inline void UiSkeleton(UiSkeletonProps p) {
+static inline void mz_render_ui_skeleton(UiSkeletonProps p) {
     int h = p.height_px > 0 ? p.height_px : 16;
     char style[256];
     if (p.circle) {
@@ -46,6 +48,8 @@ static inline void UiSkeleton(UiSkeletonProps p) {
     Div(.cls = "mz-skeleton", .style = style) {}
 }
 
+#define UiSkeleton(...) mz_render_ui_skeleton((UiSkeletonProps){ __VA_ARGS__ })
+
 // 3. Status Indicator Dot (Pulsing operational indicator)
 typedef enum {
     STATUS_ONLINE = 0,
@@ -59,7 +63,7 @@ typedef struct {
     const char *label;
 } UiStatusProps;
 
-static inline void UiStatus(UiStatusProps p) {
+static inline void mz_render_ui_status(UiStatusProps p) {
     const char *col = "#16a34a"; // green
     if (p.status == STATUS_AWAY) col = "#eab308"; // yellow
     else if (p.status == STATUS_BUSY) col = "#dc2626"; // red
@@ -73,5 +77,7 @@ static inline void UiStatus(UiStatusProps p) {
         if (p.label) Text(p.label);
     }
 }
+
+#define UiStatus(...) mz_render_ui_status((UiStatusProps){ __VA_ARGS__ })
 
 #endif

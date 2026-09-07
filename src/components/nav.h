@@ -41,7 +41,7 @@ typedef struct {
     const char *base_url; // e.g. "/items?page="
 } UiPaginationProps;
 
-static inline void UiPagination(UiPaginationProps p) {
+static inline void mz_render_ui_pagination(UiPaginationProps p) {
     if (p.total_pages <= 1) return;
 
     Nav(.aria_label = "Pagination", .style = "display: flex; justify-content: center; gap: 4px; margin: 24px 0;") {
@@ -69,6 +69,8 @@ static inline void UiPagination(UiPaginationProps p) {
         }
     }
 }
+
+#define UiPagination(...) mz_render_ui_pagination((UiPaginationProps){ __VA_ARGS__ })
 
 // 3. Navbar Layout
 typedef struct {
