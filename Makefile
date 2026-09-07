@@ -39,6 +39,8 @@ test: build/libmizar.a
 	@./build/test_server
 	@$(CC) $(CFLAGS) test/test_concurrency.c build/libmizar.a -o build/test_concurrency
 	@./build/test_concurrency
+	@$(CC) $(CFLAGS) test/test_equation.c build/libmizar.a -o build/test_equation
+	@./build/test_equation
 	@echo "All tests passed cleanly."
 
 install: all
