@@ -12,6 +12,13 @@ int main(void) {
             Title() { Text("Document"); }
             Style() {
                 Rule(".box") { Prop("margin", "0"); }
+                CssRule(".card", (CssProps){
+                    .display = CSS_FLEX,
+                    .flex_direction = CSS_COLUMN,
+                    .padding = Px(16),
+                    .border_radius = Px(8),
+                    .background = "#ffffff"
+                });
             }
         }
         Body() {
@@ -33,6 +40,7 @@ int main(void) {
     assert(strstr(buf.data, "<!DOCTYPE html>\n") != NULL);
     assert(strstr(buf.data, "<title>Document</title>") != NULL);
     assert(strstr(buf.data, ".box {\n  margin: 0;\n}\n") != NULL);
+    assert(strstr(buf.data, ".card {\n  display: flex;\n  flex-direction: column;\n  padding: 16px;\n  border-radius: 8px;\n  background: #ffffff;\n}\n") != NULL);
     assert(strstr(buf.data, "hx-get=\"/items\"") != NULL);
     assert(strstr(buf.data, "<circle cx=\"50\" cy=\"50\" r=\"40\" fill=\"#000\" />") != NULL);
     assert(strstr(buf.data, "<math display=\"block\"><mrow><mi>x</mi><mo>=</mo><mn>1</mn></mrow></math>") != NULL);

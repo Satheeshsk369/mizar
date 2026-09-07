@@ -2,6 +2,7 @@
 #include <string.h>
 #include "mizar.h"
 #include "layout.h"
+#include "style.h"
 
 // -----------------------------------------------------------------------------
 // 1. INDEX / OVERVIEW
@@ -371,6 +372,13 @@ int main(int argc, char **argv) {
             mz_site_free(&site);
             return 1;
         }
+
+        // Generate the entire stylesheet using the type-safe C23 CSS DSL
+        MizarBuffer css_buf;
+        mz_buf_init(&css_buf, 4096);
+        render_docs_stylesheet(&css_buf);
+        mz_fs_write_file("build/docs/style.css", css_buf.data, css_buf.len);
+        mz_buf_free(&css_buf);
 
         mz_site_free(&site);
         printf("Documentation successfully generated in build/docs/\n");
