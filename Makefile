@@ -28,7 +28,19 @@ OBJS = $(SRCS:src/%.c=build/%.o)
 LIB_STATIC = build/libmizar.a
 LIB_SHARED = build/libmizar.$(SO_EXT)
 
+DOCS_SRCS = $(wildcard docs/*.c)
+
 all: $(LIB_STATIC) $(LIB_SHARED) build/mizar.pc build/compile_commands.json
+
+doc-build: $(LIB_STATIC)
+	@mkdir -p build/docs
+	@$(CC) $(CFLAGS) -Idocs docs/main.c $(LIB_STATIC) -o build/docs_builder
+	@./build/docs_builder build
+
+doc-serve: $(LIB_STATIC)
+	@mkdir -p build/docs
+	@$(CC) $(CFLAGS) -Idocs docs/main.c $(LIB_STATIC) -o build/docs_builder
+	@./build/docs_builder serve
 
 $(LIB_STATIC): $(OBJS)
 	$(AR) rcs $@ $^
@@ -55,6 +67,9 @@ build/compile_commands.json: $(SRCS)
 	done
 	@for test_src in $(wildcard test/*.c); do \
 		printf '  {"directory": "$(CURDIR)", "command": "$(CC) $(CFLAGS) '$$test_src' build/libmizar.a", "file": "'$$test_src'"},\n' >> $@; \
+	done
+	@for doc_src in $(wildcard docs/*.c); do \
+		printf '  {"directory": "$(CURDIR)", "command": "$(CC) $(CFLAGS) -Idocs '$$doc_src' build/libmizar.a", "file": "'$$doc_src'"},\n' >> $@; \
 	done
 	@sed -i '$$ s/,$$//' $@
 	@printf ']\n' >> $@
@@ -97,4 +112,4 @@ uninstall:
 clean:
 	rm -rf build
 
-.PHONY: all clean test install uninstall
+.PHONY: all clean test install uninstall doc-build doc-serve

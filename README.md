@@ -76,8 +76,8 @@ int main(void) {
     mz_app_init(&app);
     mz_app_set_workers(&app, 4);
 
-    mz_app_get(&app, "/", handle_index, nullptr);
-    mz_app_get(&app, "/api/data", handle_data, nullptr);
+    mz_app_get(&app, "/", handle_index);
+    mz_app_get(&app, "/api/data", handle_data);
 
     mz_app_listen(&app, 3000);
 

@@ -27,7 +27,7 @@ int main(void) {
     MzApp app;
     mz_app_init(&app);
     mz_app_set_workers(&app, 2);
-    mz_app_get(&app, "/ping", handle_ping, nullptr);
+    mz_app_get(&app, "/ping", handle_ping);
 
     pthread_t tid;
     pthread_create(&tid, nullptr, run_server, &app);

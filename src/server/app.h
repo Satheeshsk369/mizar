@@ -47,19 +47,47 @@ void mz_app_free(MzApp *app);
 // Configuration
 void mz_app_set_workers(MzApp *app, int num_threads);
 
-// Middleware
-void mz_app_use(MzApp *app, MzMiddlewareFn fn, void *user_data);
+// Route registration base functions
+void mz_app_route_impl(MzApp *app, const char *method, const char *pattern, MzHandlerFn handler, void *user_data);
+void mz_app_get_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data);
+void mz_app_post_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data);
+void mz_app_put_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data);
+void mz_app_delete_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data);
+void mz_app_patch_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data);
+void mz_app_use_impl(MzApp *app, MzMiddlewareFn fn, void *user_data);
 
-// Static file hosting
-void mz_app_static(MzApp *app, const char *url_prefix, const char *dir_path);
+// Macro overloads supporting optional user_data (defaults to nullptr)
+#define _MZ_ARG4(_1, _2, _3, _4, NAME, ...) NAME
+#define _MZ_ARG3(_1, _2, _3, NAME, ...) NAME
 
-// Route registration
-void mz_app_route(MzApp *app, const char *method, const char *pattern, MzHandlerFn handler, void *user_data);
-void mz_app_get(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data);
-void mz_app_post(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data);
-void mz_app_put(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data);
-void mz_app_delete(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data);
-void mz_app_patch(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data);
+#define mz_app_use(...) _MZ_ARG3(__VA_ARGS__, _mz_app_use_2, _mz_app_use_1)(__VA_ARGS__)
+#define _mz_app_use_1(app, fn) mz_app_use_impl((app), (fn), nullptr)
+#define _mz_app_use_2(app, fn, udata) mz_app_use_impl((app), (fn), (udata))
+
+#define mz_app_get(...) _MZ_ARG4(__VA_ARGS__, _mz_app_get_4, _mz_app_get_3)(__VA_ARGS__)
+#define _mz_app_get_3(app, pat, fn) mz_app_get_impl((app), (pat), (fn), nullptr)
+#define _mz_app_get_4(app, pat, fn, udata) mz_app_get_impl((app), (pat), (fn), (udata))
+
+#define mz_app_post(...) _MZ_ARG4(__VA_ARGS__, _mz_app_post_4, _mz_app_post_3)(__VA_ARGS__)
+#define _mz_app_post_3(app, pat, fn) mz_app_post_impl((app), (pat), (fn), nullptr)
+#define _mz_app_post_4(app, pat, fn, udata) mz_app_post_impl((app), (pat), (fn), (udata))
+
+#define mz_app_put(...) _MZ_ARG4(__VA_ARGS__, _mz_app_put_4, _mz_app_put_3)(__VA_ARGS__)
+#define _mz_app_put_3(app, pat, fn) mz_app_put_impl((app), (pat), (fn), nullptr)
+#define _mz_app_put_4(app, pat, fn, udata) mz_app_put_impl((app), (pat), (fn), (udata))
+
+#define mz_app_delete(...) _MZ_ARG4(__VA_ARGS__, _mz_app_delete_4, _mz_app_delete_3)(__VA_ARGS__)
+#define _mz_app_delete_3(app, pat, fn) mz_app_delete_impl((app), (pat), (fn), nullptr)
+#define _mz_app_delete_4(app, pat, fn, udata) mz_app_delete_impl((app), (pat), (fn), (udata))
+
+#define mz_app_patch(...) _MZ_ARG4(__VA_ARGS__, _mz_app_patch_4, _mz_app_patch_3)(__VA_ARGS__)
+#define _mz_app_patch_3(app, pat, fn) mz_app_patch_impl((app), (pat), (fn), nullptr)
+#define _mz_app_patch_4(app, pat, fn, udata) mz_app_patch_impl((app), (pat), (fn), (udata))
+
+#define _MZ_ARG5(_1, _2, _3, _4, _5, NAME, ...) NAME
+#define mz_app_route(...) _MZ_ARG5(__VA_ARGS__, _mz_app_route_5, _mz_app_route_4)(__VA_ARGS__)
+#define _mz_app_route_4(app, meth, pat, fn) mz_app_route_impl((app), (meth), (pat), (fn), nullptr)
+#define _mz_app_route_5(app, meth, pat, fn, udata) mz_app_route_impl((app), (meth), (pat), (fn), (udata))
 
 // Request dispatch (called by server worker or unit test)
 void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res);

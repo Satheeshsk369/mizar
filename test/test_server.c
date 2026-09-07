@@ -54,10 +54,10 @@ int main(void) {
     MzApp app;
     mz_app_init(&app);
 
-    mz_app_use(&app, auth_middleware, nullptr);
-    mz_app_get(&app, "/items", handle_items, nullptr);
-    mz_app_post(&app, "/login", handle_login, nullptr);
-    mz_app_get(&app, "/users/:id", handle_user_by_id, nullptr);
+    mz_app_use(&app, auth_middleware);
+    mz_app_get(&app, "/items", handle_items);
+    mz_app_post(&app, "/login", handle_login);
+    mz_app_get(&app, "/users/:id", handle_user_by_id);
 
     // 1. HTMX request with OOB swap and trigger
     {

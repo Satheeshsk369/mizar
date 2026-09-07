@@ -35,8 +35,8 @@ int main(void) {
     mz_site_init(&site, "build/test_dist");
     mz_site_set_static_dir(&site, "build/test_static");
 
-    mz_site_add_page(&site, "/", render_index, nullptr);
-    mz_site_add_page(&site, "/about", render_about, nullptr);
+    mz_site_add_page(&site, "/", render_index);
+    mz_site_add_page(&site, "/about", render_about);
 
     assert(mz_site_build(&site) == true);
 

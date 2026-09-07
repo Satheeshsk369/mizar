@@ -105,7 +105,7 @@ void mz_app_free(MzApp *app) {
     memset(app, 0, sizeof(MzApp));
 }
 
-void mz_app_use(MzApp *app, MzMiddlewareFn fn, void *user_data) {
+void mz_app_use_impl(MzApp *app, MzMiddlewareFn fn, void *user_data) {
     if (!app || !fn) return;
     if (app->middleware_count >= app->middleware_capacity) {
         size_t new_cap = app->middleware_capacity ? app->middleware_capacity * 2 : 8;
@@ -127,7 +127,7 @@ void mz_app_static(MzApp *app, const char *url_prefix, const char *dir_path) {
     app->static_dir = strdup(dir_path);
 }
 
-void mz_app_route(MzApp *app, const char *method, const char *pattern, MzHandlerFn handler, void *user_data) {
+void mz_app_route_impl(MzApp *app, const char *method, const char *pattern, MzHandlerFn handler, void *user_data) {
     if (!app || !method || !pattern || !handler) return;
 
     if (app->route_count >= app->route_capacity) {
@@ -145,24 +145,24 @@ void mz_app_route(MzApp *app, const char *method, const char *pattern, MzHandler
     app->route_count++;
 }
 
-void mz_app_get(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
-    mz_app_route(app, "GET", pattern, handler, user_data);
+void mz_app_get_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
+    mz_app_route_impl(app, "GET", pattern, handler, user_data);
 }
 
-void mz_app_post(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
-    mz_app_route(app, "POST", pattern, handler, user_data);
+void mz_app_post_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
+    mz_app_route_impl(app, "POST", pattern, handler, user_data);
 }
 
-void mz_app_put(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
-    mz_app_route(app, "PUT", pattern, handler, user_data);
+void mz_app_put_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
+    mz_app_route_impl(app, "PUT", pattern, handler, user_data);
 }
 
-void mz_app_delete(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
-    mz_app_route(app, "DELETE", pattern, handler, user_data);
+void mz_app_delete_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
+    mz_app_route_impl(app, "DELETE", pattern, handler, user_data);
 }
 
-void mz_app_patch(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
-    mz_app_route(app, "PATCH", pattern, handler, user_data);
+void mz_app_patch_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
+    mz_app_route_impl(app, "PATCH", pattern, handler, user_data);
 }
 
 static bool mz_match_path(const char *pattern, const char *path, MzRequest *req) {

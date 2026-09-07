@@ -29,7 +29,12 @@ void mz_site_free(MizarSite *site);
 void mz_site_set_static_dir(MizarSite *site, const char *static_dir);
 
 // Route registration
-bool mz_site_add_page(MizarSite *site, const char *route, MizarPageRenderFn render_fn, void *user_data);
+bool mz_site_add_page_impl(MizarSite *site, const char *route, MizarPageRenderFn render_fn, void *user_data);
+
+#define _MZ_SITE_ARG4(_1, _2, _3, _4, NAME, ...) NAME
+#define mz_site_add_page(...) _MZ_SITE_ARG4(__VA_ARGS__, _mz_site_add_page_4, _mz_site_add_page_3)(__VA_ARGS__)
+#define _mz_site_add_page_3(site, route, fn) mz_site_add_page_impl((site), (route), (fn), nullptr)
+#define _mz_site_add_page_4(site, route, fn, udata) mz_site_add_page_impl((site), (route), (fn), (udata))
 
 // Build execution: renders all registered routes into files in out_dir, copies static_dir
 bool mz_site_build(MizarSite *site);

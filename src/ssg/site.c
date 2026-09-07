@@ -37,7 +37,7 @@ void mz_site_set_static_dir(MizarSite *site, const char *static_dir) {
     site->static_dir = static_dir ? strdup(static_dir) : nullptr;
 }
 
-bool mz_site_add_page(MizarSite *site, const char *route, MizarPageRenderFn render_fn, void *user_data) {
+bool mz_site_add_page_impl(MizarSite *site, const char *route, MizarPageRenderFn render_fn, void *user_data) {
     if (!site || !route || !render_fn) return false;
 
     if (site->route_count >= site->route_capacity) {
