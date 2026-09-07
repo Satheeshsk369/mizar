@@ -93,6 +93,10 @@ test: build/libmizar.a
 	@./build/test_equation
 	@$(CC) $(CFLAGS) test/test_components.c build/libmizar.a -o build/test_components
 	@./build/test_components
+	@$(CC) $(CFLAGS) test/test_geometry.c build/libmizar.a -o build/test_geometry
+	@./build/test_geometry
+	@$(CC) $(CFLAGS) test/test_icons.c build/libmizar.a -o build/test_icons
+	@./build/test_icons
 	@echo "All tests passed cleanly."
 
 install: all
