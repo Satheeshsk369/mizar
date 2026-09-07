@@ -95,6 +95,7 @@ static inline bool Flush(void) {
     return mz_buf_flush(buf);
 }
 
+// Void Elements (self-closing)
 #define Area(...)   mz_void_tag("area",   (Attrs){ __VA_ARGS__ })
 #define Base(...)   mz_void_tag("base",   (Attrs){ __VA_ARGS__ })
 #define Br(...)     mz_void_tag("br",     (Attrs){ __VA_ARGS__ })
@@ -109,6 +110,7 @@ static inline bool Flush(void) {
 #define Track(...)  mz_void_tag("track",  (Attrs){ __VA_ARGS__ })
 #define Wbr(...)    mz_void_tag("wbr",    (Attrs){ __VA_ARGS__ })
 
+// Container Elements
 #define A(...)               _MZ_TAG("a",               __VA_ARGS__)
 #define Abbr(...)            _MZ_TAG("abbr",            __VA_ARGS__)
 #define Address(...)         _MZ_TAG("address",         __VA_ARGS__)
@@ -137,11 +139,13 @@ static inline bool Flush(void) {
 #define Dl(...)              _MZ_TAG("dl",              __VA_ARGS__)
 #define Dt(...)              _MZ_TAG("dt",              __VA_ARGS__)
 #define Em(...)              _MZ_TAG("em",              __VA_ARGS__)
+#define Fencedframe(...)     _MZ_TAG("fencedframe",     __VA_ARGS__)
 #define Fieldset(...)        _MZ_TAG("fieldset",        __VA_ARGS__)
 #define Figcaption(...)      _MZ_TAG("figcaption",      __VA_ARGS__)
 #define Figure(...)          _MZ_TAG("figure",          __VA_ARGS__)
 #define Footer(...)          _MZ_TAG("footer",          __VA_ARGS__)
 #define Form(...)            _MZ_TAG("form",            __VA_ARGS__)
+#define Geolocation(...)     _MZ_TAG("geolocation",     __VA_ARGS__)
 #define H1(...)              _MZ_TAG("h1",              __VA_ARGS__)
 #define H2(...)              _MZ_TAG("h2",              __VA_ARGS__)
 #define H3(...)              _MZ_TAG("h3",              __VA_ARGS__)
@@ -172,11 +176,14 @@ static inline bool Flush(void) {
 #define Output(...)          _MZ_TAG("output",          __VA_ARGS__)
 #define P(...)               _MZ_TAG("p",               __VA_ARGS__)
 #define Picture(...)         _MZ_TAG("picture",         __VA_ARGS__)
+#define Portal(...)          _MZ_TAG("portal",          __VA_ARGS__)
 #define Pre(...)             _MZ_TAG("pre",             __VA_ARGS__)
 #define Progress(...)        _MZ_TAG("progress",        __VA_ARGS__)
 #define Q(...)               _MZ_TAG("q",               __VA_ARGS__)
+#define Rb(...)              _MZ_TAG("rb",              __VA_ARGS__)
 #define Rp(...)              _MZ_TAG("rp",              __VA_ARGS__)
 #define Rt(...)              _MZ_TAG("rt",              __VA_ARGS__)
+#define Rtc(...)             _MZ_TAG("rtc",             __VA_ARGS__)
 #define Ruby(...)            _MZ_TAG("ruby",            __VA_ARGS__)
 #define S(...)               _MZ_TAG("s",               __VA_ARGS__)
 #define Samp(...)            _MZ_TAG("samp",            __VA_ARGS__)
