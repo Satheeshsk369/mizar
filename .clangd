@@ -1,7 +1,20 @@
 CompileFlags:
   Add:
+    - -xc-header
     - -std=c23
     - -Isrc
     - -I../src
     - -Wall
     - -Wextra
+
+Diagnostics:
+  UnusedIncludes: None
+
+---
+If:
+  PathMatch: .*\.c$
+CompileFlags:
+  Remove: [-xc-header]
+  Add:
+    - -xc
+    - -std=c23
