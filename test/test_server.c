@@ -144,6 +144,50 @@ int main(void) {
         mz_req_free(&req);
     }
 
+    // 5. Query parameters & Cookies
+    {
+        const char *raw = "GET /search?q=c23+framework&page=2 HTTP/1.1\r\n"
+                          "Host: localhost\r\n"
+                          "Cookie: session_id=xyz987; theme=light\r\n\r\n";
+        MzRequest req;
+        assert(mz_http_parse_request(raw, strlen(raw), &req));
+        assert(strcmp(mz_req_query(&req, "q"), "c23 framework") == 0);
+        assert(strcmp(mz_req_query(&req, "page"), "2") == 0);
+        assert(strcmp(mz_req_cookie(&req, "session_id"), "xyz987") == 0);
+        assert(strcmp(mz_req_cookie(&req, "theme"), "light") == 0);
+
+        MzResponse res;
+        mz_res_init(&res);
+        mz_res_set_cookie(&res, "visited", "true", (MzCookieOpts){ .path = "/", .http_only = true });
+
+        MizarBuffer out;
+        mz_buf_init(&out, 512);
+        mz_res_serialize(&res, &out);
+        assert(strstr(out.data, "Set-Cookie: visited=true; Path=/; HttpOnly") != NULL);
+
+        mz_buf_free(&out);
+        mz_res_free(&res);
+        mz_req_free(&req);
+    }
+
+    // 6. Streaming JSON DSL
+    {
+        MizarBuffer jbuf;
+        mz_buf_init(&jbuf, 256);
+        JsonDoc(&jbuf) {
+            JsonObj() {
+                JsonKeyStr("status", "ok");
+                JsonKeyInt("code", 200);
+                JsonKeyArr("tags") {
+                    JsonValStr("c23");
+                    JsonValStr("web");
+                }
+            }
+        }
+        assert(strcmp(jbuf.data, "{\"status\":\"ok\",\"code\":200,\"tags\":[\"c23\",\"web\"]}") == 0);
+        mz_buf_free(&jbuf);
+    }
+
     mz_app_free(&app);
     return 0;
 }

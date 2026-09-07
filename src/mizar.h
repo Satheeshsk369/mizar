@@ -3,6 +3,7 @@
 
 #include "core/buffer.h"
 #include "core/url.h"
+#include "core/json.h"
 #include "core/livereload.h"
 #include "view/html/attrs.h"
 #include "view/html/tags.h"
@@ -11,6 +12,7 @@
 #include "view/mathml/attrs.h"
 #include "view/mathml/tags.h"
 #include "view/equation.h"
+#include "view/component.h"
 #include "view/css/rules.h"
 #include "ssg/fs.h"
 #include "ssg/site.h"

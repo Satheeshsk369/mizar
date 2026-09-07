@@ -63,6 +63,56 @@ const char *mz_req_form(const MzRequest *req, const char *key) {
     return nullptr;
 }
 
+const char *mz_req_cookie(const MzRequest *req, const char *key) {
+    if (!req || !key) return nullptr;
+    const char *cookie_hdr = mz_req_header(req, "Cookie");
+    if (!cookie_hdr) return nullptr;
+
+    const char *p = cookie_hdr;
+    size_t key_len = strlen(key);
+    while (*p) {
+        while (*p == ' ' || *p == ';') p++;
+        if (strncmp(p, key, key_len) == 0 && p[key_len] == '=') {
+            const char *val_start = p + key_len + 1;
+            const char *val_end = strchr(val_start, ';');
+            if (!val_end) val_end = val_start + strlen(val_start);
+            // Return thread-local or static buffer to caller
+            static thread_local char cookie_buf[256];
+            size_t vlen = (size_t)(val_end - val_start);
+            if (vlen >= sizeof(cookie_buf)) vlen = sizeof(cookie_buf) - 1;
+            memcpy(cookie_buf, val_start, vlen);
+            cookie_buf[vlen] = '\0';
+            return cookie_buf;
+        }
+        const char *semi = strchr(p, ';');
+        if (!semi) break;
+        p = semi + 1;
+    }
+    return nullptr;
+}
+
+void mz_res_set_cookie(MzResponse *res, const char *name, const char *val, MzCookieOpts opts) {
+    if (!res || !name || !val) return;
+    char cookie_str[512];
+    int n = snprintf(cookie_str, sizeof(cookie_str), "%s=%s", name, val);
+    if (opts.path && n < (int)sizeof(cookie_str)) {
+        n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; Path=%s", opts.path);
+    }
+    if (opts.max_age > 0 && n < (int)sizeof(cookie_str)) {
+        n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; Max-Age=%d", opts.max_age);
+    }
+    if (opts.http_only && n < (int)sizeof(cookie_str)) {
+        n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; HttpOnly");
+    }
+    if (opts.secure && n < (int)sizeof(cookie_str)) {
+        n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; Secure");
+    }
+    if (opts.same_site && n < (int)sizeof(cookie_str)) {
+        n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; SameSite=%s", opts.same_site);
+    }
+    mz_res_header(res, "Set-Cookie", cookie_str);
+}
+
 bool mz_req_is_htmx(const MzRequest *req) {
     const char *val = mz_req_header(req, "HX-Request");
     return (val != nullptr && strcmp(val, "true") == 0);

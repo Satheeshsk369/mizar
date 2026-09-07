@@ -56,6 +56,18 @@ const char *mz_req_header(const MzRequest *req, const char *key);
 const char *mz_req_param(const MzRequest *req, const char *key);
 const char *mz_req_query(const MzRequest *req, const char *key);
 const char *mz_req_form(const MzRequest *req, const char *key);
+const char *mz_req_cookie(const MzRequest *req, const char *key);
+
+typedef struct {
+    const char *path;
+    int max_age;
+    bool http_only;
+    bool secure;
+    const char *same_site; // "Strict", "Lax", "None"
+} MzCookieOpts;
+
+// Cookie helper
+void mz_res_set_cookie(MzResponse *res, const char *name, const char *val, MzCookieOpts opts);
 
 // HTMX Request Inspection
 bool mz_req_is_htmx(const MzRequest *req);
