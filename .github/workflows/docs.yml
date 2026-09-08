@@ -20,16 +20,15 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install C23 Toolchain (GCC 14)
+      - name: Install C23 Toolchain
         run: |
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install -y gcc-14 pkg-config make
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc-14 pkg-config make
 
       - name: Build Mizar & Documentation
         run: |
