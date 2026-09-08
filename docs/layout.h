@@ -69,12 +69,12 @@ static inline void docs_layout(MizarBuffer *buf, const char *title, const char *
             Title() { Text("%s — Mizar Framework Documentation", title); }
             // Run theme initialisation immediately before CSS renders to avoid FOUC
             Script() {
-                Js("try { const t = localStorage.getItem('mizar-theme') || 'light'; document.documentElement.setAttribute('data-theme', t); } catch(e) {}");
+                Js("try { const t = localStorage.getItem('mizar-theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); } catch(e) {}");
             }
             Link(.rel = "stylesheet", .href = "/style.css");
             // Prism.js Syntax Highlighting
-            Link(.rel = "stylesheet", .id = "prism-light", .href = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css");
-            Link(.rel = "stylesheet", .id = "prism-dark", .href = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css", .disabled = true);
+            Link(.rel = "stylesheet", .id = "prism-light", .href = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css", .disabled = true);
+            Link(.rel = "stylesheet", .id = "prism-dark", .href = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css");
             Script(.defer = true, .src = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js") {}
             Script(.defer = true, .src = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-c.min.js") {}
             Script(.defer = true, .src = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-makefile.min.js") {}
@@ -133,12 +133,12 @@ static inline void docs_layout(MizarBuffer *buf, const char *title, const char *
                 }
 
                 JsOnReady() {
-                    JsConst("savedTheme", "(typeof localStorage !== 'undefined' && localStorage.getItem('mizar-theme')) || 'light'");
+                    JsConst("savedTheme", "(typeof localStorage !== 'undefined' && localStorage.getItem('mizar-theme')) || 'dark'");
                     JsSetTheme("savedTheme");
                     JsCall("updateThemeUI(savedTheme)");
 
                     JsOn("document.getElementById('theme-btn')", "click") {
-                        JsConst("cur", "document.documentElement.getAttribute('data-theme') || 'light'");
+                        JsConst("cur", "document.documentElement.getAttribute('data-theme') || 'dark'");
                         JsConst("next", "cur === 'dark' ? 'light' : 'dark'");
                         JsSetTheme("next");
                         JsIf("typeof localStorage !== 'undefined'") {
