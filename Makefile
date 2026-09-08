@@ -2,6 +2,12 @@ CC ?= gcc
 AR ?= ar
 CFLAGS ?= -std=c23 -Wall -Wextra -O2 -fPIC -Isrc
 
+# Optional BearSSL TLS Support (make TLS=1)
+ifeq ($(TLS),1)
+    CFLAGS += -DMIZAR_ENABLE_TLS=1
+    LIBS_EXTRA += -lbearssl
+endif
+
 # Platform detection
 UNAME_S := $(shell uname -s 2>/dev/null || echo Unknown)
 
@@ -51,11 +57,21 @@ $(LIB_STATIC): $(OBJS)
 	$(AR) rcs $@ $^
 
 $(LIB_SHARED): $(OBJS)
-	$(CC) $(SHLIB_FLAGS) -o $@ $^
+	$(CC) $(SHLIB_FLAGS) -o $@ $^ $(LIBS_EXTRA)
 
 build/%.o: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+# Automatically re-trigger object rebuild when TLS mode changes
+build/.tls_mode: FORCE
+	@mkdir -p build
+	@echo "$(TLS)" > $@.tmp
+	@if [ ! -f $@ ] || ! cmp -s $@.tmp $@; then mv $@.tmp $@; rm -f $(OBJS) $(LIB_STATIC) $(LIB_SHARED); else rm -f $@.tmp; fi
+
+FORCE:
+
+$(OBJS): build/.tls_mode
 
 build/mizar.pc: mizar.pc.in
 	@mkdir -p build
@@ -79,24 +95,26 @@ build/compile_commands.json: $(SRCS)
 	@sed -i '$$ s/,$$//' $@
 	@printf ']\n' >> $@
 
-test: build/libmizar.a
+test: $(LIB_STATIC)
 	@mkdir -p build
-	@$(CC) $(CFLAGS) test/test_main.c build/libmizar.a -o build/test_main
+	@$(CC) $(CFLAGS) test/test_main.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_main
 	@./build/test_main
-	@$(CC) $(CFLAGS) test/test_ssg.c build/libmizar.a -o build/test_ssg
+	@$(CC) $(CFLAGS) test/test_ssg.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_ssg
 	@./build/test_ssg
-	@$(CC) $(CFLAGS) test/test_server.c build/libmizar.a -o build/test_server
+	@$(CC) $(CFLAGS) test/test_server.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_server
 	@./build/test_server
-	@$(CC) $(CFLAGS) test/test_concurrency.c build/libmizar.a -o build/test_concurrency
+	@$(CC) $(CFLAGS) test/test_concurrency.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_concurrency
 	@./build/test_concurrency
-	@$(CC) $(CFLAGS) test/test_equation.c build/libmizar.a -o build/test_equation
+	@$(CC) $(CFLAGS) test/test_equation.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_equation
 	@./build/test_equation
-	@$(CC) $(CFLAGS) test/test_components.c build/libmizar.a -o build/test_components
+	@$(CC) $(CFLAGS) test/test_components.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_components
 	@./build/test_components
-	@$(CC) $(CFLAGS) test/test_geometry.c build/libmizar.a -o build/test_geometry
+	@$(CC) $(CFLAGS) test/test_geometry.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_geometry
 	@./build/test_geometry
-	@$(CC) $(CFLAGS) test/test_icons.c build/libmizar.a -o build/test_icons
+	@$(CC) $(CFLAGS) test/test_icons.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_icons
 	@./build/test_icons
+	@$(CC) $(CFLAGS) test/test_tls.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_tls
+	@./build/test_tls
 	@echo "All tests passed cleanly."
 
 install: all

@@ -95,4 +95,7 @@ void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res);
 // High-concurrency worker pool HTTP Server (blocks until interrupted)
 bool mz_app_listen(MzApp *app, int port);
 
+// High-concurrency worker pool HTTPS Server with BearSSL (blocks until interrupted)
+bool mz_app_listen_tls(MzApp *app, int port, const char *cert_file, const char *key_file);
+
 #endif

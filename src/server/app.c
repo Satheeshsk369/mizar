@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #define _DEFAULT_SOURCE
 #include "server/app.h"
+#include "server/tls.h"
 #include "ssg/fs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -561,4 +562,119 @@ bool mz_app_listen(MzApp *app, int port) {
     free(contexts);
     free(threads);
     return true;
+}
+
+#ifdef MIZAR_ENABLE_TLS
+typedef struct {
+    MzApp *app;
+    int port;
+    int worker_id;
+    MzTlsCertKey *cert_key;
+} MzTlsWorkerContext;
+
+static void *mz_worker_tls_loop(void *arg) {
+    MzTlsWorkerContext *wctx = (MzTlsWorkerContext *)arg;
+    MzApp *app = wctx->app;
+    MzTlsCertKey *ck = wctx->cert_key;
+
+    int listener_fd = mz_create_listener_socket(wctx->port);
+    if (listener_fd < 0) return nullptr;
+
+    while (1) {
+        struct sockaddr_in client_addr;
+        socklen_t client_len = sizeof(client_addr);
+        int client_fd = accept(listener_fd, (struct sockaddr *)&client_addr, &client_len);
+        if (client_fd < 0) continue;
+
+        mz_configure_client_socket(client_fd);
+
+        MzTlsSession tls_sess;
+        if (!mz_tls_session_init(&tls_sess, ck, &client_fd)) {
+            close(client_fd);
+            continue;
+        }
+
+        char req_buf[MZ_BUFFER_SIZE];
+        int rlen = mz_tls_read(&tls_sess, req_buf, sizeof(req_buf) - 1);
+        if (rlen > 0) {
+            req_buf[rlen] = '\0';
+            MzRequest req;
+            if (mz_http_parse_request(req_buf, rlen, &req)) {
+                MzResponse res;
+                mz_res_init(&res);
+                mz_app_handle(app, &req, &res);
+
+                MizarBuffer out;
+                mz_buf_init(&out, 2048);
+                mz_buf_printf(&out, "HTTP/1.1 %d %s\r\n", res.status_code, res.status_text);
+                bool has_cl = false;
+                for (size_t h = 0; h < res.header_count; h++) {
+                    if (strcasecmp(res.headers[h].key, "Content-Length") == 0) has_cl = true;
+                    mz_buf_printf(&out, "%s: %s\r\n", res.headers[h].key, res.headers[h].value);
+                }
+                if (!has_cl) {
+                    mz_buf_printf(&out, "Content-Length: %zu\r\n", res.body.len);
+                }
+                mz_buf_append_str(&out, "Connection: close\r\n\r\n");
+                if (res.body.len > 0) {
+                    mz_buf_append(&out, res.body.data, res.body.len);
+                }
+
+                mz_tls_write_all(&tls_sess, out.data, out.len);
+                mz_tls_flush(&tls_sess);
+
+                mz_buf_free(&out);
+                mz_res_free(&res);
+                mz_req_free(&req);
+            }
+        }
+
+        mz_tls_close(&tls_sess);
+        close(client_fd);
+    }
+
+    close(listener_fd);
+    return nullptr;
+}
+#endif
+
+bool mz_app_listen_tls(MzApp *app, int port, const char *cert_file, const char *key_file) {
+#ifdef MIZAR_ENABLE_TLS
+    if (!app || !cert_file || !key_file) return false;
+    if (port <= 0) port = 8443;
+
+    MzTlsCertKey ck;
+    if (!mz_tls_load_cert_and_key(cert_file, key_file, &ck)) {
+        return false;
+    }
+
+    int num_threads = app->worker_threads > 0 ? app->worker_threads : 4;
+    pthread_t *threads = (pthread_t *)malloc(num_threads * sizeof(pthread_t));
+    MzTlsWorkerContext *contexts = (MzTlsWorkerContext *)malloc(num_threads * sizeof(MzTlsWorkerContext));
+
+    for (int i = 0; i < num_threads; i++) {
+        contexts[i].app = app;
+        contexts[i].port = port;
+        contexts[i].worker_id = i;
+        contexts[i].cert_key = &ck;
+        if (i < num_threads - 1) {
+            pthread_create(&threads[i], nullptr, mz_worker_tls_loop, &contexts[i]);
+        }
+    }
+
+    mz_worker_tls_loop(&contexts[num_threads - 1]);
+
+    for (int i = 0; i < num_threads - 1; i++) {
+        pthread_join(threads[i], nullptr);
+    }
+
+    mz_tls_free_cert_key(&ck);
+    free(contexts);
+    free(threads);
+    return true;
+#else
+    (void)app; (void)port; (void)cert_file; (void)key_file;
+    fprintf(stderr, "Mizar: HTTPS requested but Mizar was compiled without BearSSL support (build with make TLS=1).\n");
+    return false;
+#endif
 }
