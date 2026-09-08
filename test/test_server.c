@@ -189,5 +189,40 @@ int main(void) {
     }
 
     mz_app_free(&app);
+    // 6. HTMX 4 request inspection and response modifiers
+    {
+        const char *raw =
+            "GET /htmx4-test HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "HX-Request: true\r\n"
+            "HX-Source: button#submit-btn\r\n"
+            "HX-Request-Type: partial\r\n"
+            "HX-Current-URL: http://localhost/dashboard\r\n"
+            "HX-History-Restore-Request: true\r\n\r\n";
+        MzRequest req;
+        assert(mz_http_parse_request(raw, strlen(raw), &req));
+        assert(mz_req_is_htmx(&req));
+        assert(mz_req_is_htmx_history_restore(&req));
+        assert(strcmp(mz_req_htmx_source(&req), "button#submit-btn") == 0);
+        assert(strcmp(mz_req_htmx_trigger_name(&req), "button#submit-btn") == 0); // alias
+        assert(strcmp(mz_req_htmx_request_type(&req), "partial") == 0);
+        assert(strcmp(mz_req_htmx_current_url(&req), "http://localhost/dashboard") == 0);
+
+        MzResponse res;
+        mz_res_init(&res);
+        mz_res_location(&res, "/new-location");
+        mz_res_reselect(&res, "#main-content");
+
+        MizarBuffer out;
+        mz_buf_init(&out, 512);
+        mz_res_serialize(&res, &out);
+        assert(strstr(out.data, "HX-Location: /new-location") != NULL);
+        assert(strstr(out.data, "HX-Reselect: #main-content") != NULL);
+
+        mz_buf_free(&out);
+        mz_res_free(&res);
+        mz_req_free(&req);
+    }
+
     return 0;
 }

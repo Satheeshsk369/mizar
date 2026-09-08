@@ -134,12 +134,15 @@ void mz_render_attrs(MizarBuffer *buf, Attrs attrs) {
     mz_render_attr_str(buf, "aria-valuemax", attrs.aria_valuemax);
     mz_render_attr_str(buf, "aria-valuetext", attrs.aria_valuetext);
 
-    // HTMX Attributes
+    // HTMX 4 & Core Attributes
     mz_render_attr_str(buf, "hx-get", attrs.hx_get);
     mz_render_attr_str(buf, "hx-post", attrs.hx_post);
     mz_render_attr_str(buf, "hx-put", attrs.hx_put);
     mz_render_attr_str(buf, "hx-delete", attrs.hx_delete);
     mz_render_attr_str(buf, "hx-patch", attrs.hx_patch);
+    mz_render_attr_str(buf, "hx-query", attrs.hx_query);
+    mz_render_attr_str(buf, "hx-action", attrs.hx_action);
+    mz_render_attr_str(buf, "hx-method", attrs.hx_method);
     mz_render_attr_str(buf, "hx-target", attrs.hx_target);
     mz_render_attr_str(buf, "hx-swap", attrs.hx_swap);
     mz_render_attr_str(buf, "hx-trigger", attrs.hx_trigger);
@@ -147,11 +150,66 @@ void mz_render_attrs(MizarBuffer *buf, Attrs attrs) {
     mz_render_attr_str(buf, "hx-headers", attrs.hx_headers);
     mz_render_attr_str(buf, "hx-include", attrs.hx_include);
     mz_render_attr_str(buf, "hx-select", attrs.hx_select);
+    mz_render_attr_str(buf, "hx-select-oob", attrs.hx_select_oob);
     mz_render_attr_str(buf, "hx-indicator", attrs.hx_indicator);
     mz_render_attr_str(buf, "hx-confirm", attrs.hx_confirm);
     mz_render_attr_str(buf, "hx-push-url", attrs.hx_push_url);
+    mz_render_attr_str(buf, "hx-replace-url", attrs.hx_replace_url);
     mz_render_attr_str(buf, "hx-boost", attrs.hx_boost);
     mz_render_attr_str(buf, "hx-sync", attrs.hx_sync);
+    mz_render_attr_str(buf, "hx-config", attrs.hx_config);
+    // Support hx_disable (htmx 4) and hx_disabled_elt (htmx 2 alias)
+    mz_render_attr_str(buf, "hx-disable", attrs.hx_disable ? attrs.hx_disable : attrs.hx_disabled_elt);
+    mz_render_attr_str(buf, "hx-preload", attrs.hx_preload);
+    mz_render_attr_str(buf, "hx-pending", attrs.hx_pending);
+    mz_render_attr_str(buf, "hx-encoding", attrs.hx_encoding);
+    mz_render_attr_str(buf, "hx-validate", attrs.hx_validate);
+    mz_render_attr_str(buf, "hx-history-elt", attrs.hx_history_elt);
+    mz_render_attr_str(buf, "hx-on", attrs.hx_on);
+
+    // HTMX 4 Inheritance Modifiers (:inherited)
+    mz_render_attr_str(buf, "hx-target:inherited", attrs.hx_target_inherited);
+    mz_render_attr_str(buf, "hx-include:inherited", attrs.hx_include_inherited);
+    mz_render_attr_str(buf, "hx-swap:inherited", attrs.hx_swap_inherited);
+    mz_render_attr_str(buf, "hx-headers:inherited", attrs.hx_headers_inherited);
+    mz_render_attr_str(buf, "hx-vals:inherited", attrs.hx_vals_inherited);
+    mz_render_attr_str(buf, "hx-confirm:inherited", attrs.hx_confirm_inherited);
+    mz_render_attr_str(buf, "hx-indicator:inherited", attrs.hx_indicator_inherited);
+    mz_render_attr_str(buf, "hx-sync:inherited", attrs.hx_sync_inherited);
+    mz_render_attr_str(buf, "hx-config:inherited", attrs.hx_config_inherited);
+    mz_render_attr_str(buf, "hx-boost:inherited", attrs.hx_boost_inherited);
+    mz_render_attr_str(buf, "hx-disable:inherited", attrs.hx_disable_inherited);
+    mz_render_attr_str(buf, "hx-encoding:inherited", attrs.hx_encoding_inherited);
+    mz_render_attr_str(buf, "hx-validate:inherited", attrs.hx_validate_inherited);
+
+    // HTMX 4 Inheritance Modifiers (:append and :inherited:append)
+    mz_render_attr_str(buf, "hx-include:append", attrs.hx_include_append);
+    mz_render_attr_str(buf, "hx-include:inherited:append", attrs.hx_include_inherited_append);
+    mz_render_attr_str(buf, "hx-headers:append", attrs.hx_headers_append);
+    mz_render_attr_str(buf, "hx-headers:inherited:append", attrs.hx_headers_inherited_append);
+    mz_render_attr_str(buf, "hx-vals:append", attrs.hx_vals_append);
+    mz_render_attr_str(buf, "hx-vals:inherited:append", attrs.hx_vals_inherited_append);
+
+    // HTMX 4 Status Response Handlers
+    mz_render_attr_str(buf, "hx-status:200", attrs.hx_status_200);
+    mz_render_attr_str(buf, "hx-status:204", attrs.hx_status_204);
+    mz_render_attr_str(buf, "hx-status:304", attrs.hx_status_304);
+    mz_render_attr_str(buf, "hx-status:400", attrs.hx_status_400);
+    mz_render_attr_str(buf, "hx-status:401", attrs.hx_status_401);
+    mz_render_attr_str(buf, "hx-status:403", attrs.hx_status_403);
+    mz_render_attr_str(buf, "hx-status:404", attrs.hx_status_404);
+    mz_render_attr_str(buf, "hx-status:422", attrs.hx_status_422);
+    mz_render_attr_str(buf, "hx-status:4xx", attrs.hx_status_4xx);
+    mz_render_attr_str(buf, "hx-status:500", attrs.hx_status_500);
+    mz_render_attr_str(buf, "hx-status:502", attrs.hx_status_502);
+    mz_render_attr_str(buf, "hx-status:503", attrs.hx_status_503);
+    mz_render_attr_str(buf, "hx-status:5xx", attrs.hx_status_5xx);
+
+    // HTMX Boolean / Flag Attributes
+    mz_render_attr_bool(buf, "hx-preserve", attrs.hx_preserve);
+    mz_render_attr_bool(buf, "hx-ignore", attrs.hx_ignore);
+    mz_render_attr_bool(buf, "hx-morph-skip", attrs.hx_morph_skip);
+    mz_render_attr_bool(buf, "hx-morph-skip-children", attrs.hx_morph_skip_children);
 
     // Booleans
     mz_render_attr_bool(buf, "disabled", attrs.disabled);

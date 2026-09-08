@@ -47,6 +47,60 @@ int main(void) {
 
     mz_buf_free(&buf);
 
+    // 6. Test HTMX 4 Extended Features & Compatibility
+    {
+        MizarBuffer hbuf;
+        mz_buf_init(&hbuf, 1024);
+        mz_context_push(&hbuf);
+
+        // Internalized HTMX Script helper
+        MzHtmx(.implicit_inheritance = true, .default_swap = "outerHTML");
+
+        // HTMX 4 Partial tag and modern attributes
+        Div(HxTargetInherited("#feed"), HxBoostInherited("true")) {
+            Form(HxQuery("/search"), HxDisable("button"), HxStatus422("target:#errors"), HxMorphSkip(true)) {
+                Button(HxPost("/submit"), HxPending("#loading"), HxPreload("mouseover")) {
+                    Text("Submit");
+                }
+            }
+            HxPartial(HxTarget("#notifications"), HxSwap("beforeend")) {
+                Div() { Text("New alert!"); }
+            }
+        }
+
+        mz_context_pop();
+
+        assert(strstr(hbuf.data, "<meta name=\"htmx-config\"") != NULL);
+        assert(strstr(hbuf.data, "\"implicitInheritance\": true") != NULL);
+        assert(strstr(hbuf.data, "\"defaultSwap\": \"outerHTML\"") != NULL);
+        assert(strstr(hbuf.data, "<script src=\"https://unpkg.com/htmx.org@4.0.0\"></script>") != NULL);
+        assert(strstr(hbuf.data, "hx-target:inherited=\"#feed\"") != NULL);
+        assert(strstr(hbuf.data, "hx-boost:inherited=\"true\"") != NULL);
+        assert(strstr(hbuf.data, "hx-query=\"/search\"") != NULL);
+        assert(strstr(hbuf.data, "hx-disable=\"button\"") != NULL);
+        assert(strstr(hbuf.data, "hx-status:422=\"target:#errors\"") != NULL);
+        assert(strstr(hbuf.data, "hx-morph-skip") != NULL);
+        assert(strstr(hbuf.data, "hx-pending=\"#loading\"") != NULL);
+        assert(strstr(hbuf.data, "hx-preload=\"mouseover\"") != NULL);
+        assert(strstr(hbuf.data, "<hx-partial") != NULL);
+        assert(strstr(hbuf.data, "hx-target=\"#notifications\"") != NULL);
+        assert(strstr(hbuf.data, "hx-swap=\"beforeend\"") != NULL);
+        assert(strstr(hbuf.data, "New alert!") != NULL);
+        assert(strstr(hbuf.data, "</hx-partial>") != NULL);
+
+        mz_buf_free(&hbuf);
+    }
+
+    // 7. Test HTMX 2 alias compatibility (HxDisabledElt -> hx-disable)
+    {
+        MizarBuffer abuf;
+        mz_buf_init(&abuf, 256);
+        mz_context_push(&abuf);
+        Button(HxDisabledElt("this")) { Text("Click"); }
+        mz_context_pop();
+        assert(strstr(abuf.data, "hx-disable=\"this\"") != NULL);
+        mz_buf_free(&abuf);
+    }
     // Standalone SVG & MathML documents
     MizarBuffer sbuf, mbuf;
     mz_buf_init(&sbuf, 256);

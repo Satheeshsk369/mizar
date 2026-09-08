@@ -120,12 +120,15 @@ typedef struct {
     const char *aria_valuemax;
     const char *aria_valuetext;
 
-    // HTMX Attributes
+    // HTMX 4 & Core Attributes
     const char *hx_get;
     const char *hx_post;
     const char *hx_put;
     const char *hx_delete;
     const char *hx_patch;
+    const char *hx_query;
+    const char *hx_action;
+    const char *hx_method;
     const char *hx_target;
     const char *hx_swap;
     const char *hx_trigger;
@@ -133,11 +136,66 @@ typedef struct {
     const char *hx_headers;
     const char *hx_include;
     const char *hx_select;
+    const char *hx_select_oob;
     const char *hx_indicator;
     const char *hx_confirm;
     const char *hx_push_url;
+    const char *hx_replace_url;
     const char *hx_boost;
     const char *hx_sync;
+    const char *hx_config;
+    const char *hx_disable;
+    const char *hx_disabled_elt; // htmx 2 alias for hx-disable
+    const char *hx_preload;
+    const char *hx_pending;
+    const char *hx_encoding;
+    const char *hx_validate;
+    const char *hx_history_elt;
+    const char *hx_on;
+
+    // HTMX 4 Inheritance Modifiers (:inherited)
+    const char *hx_target_inherited;
+    const char *hx_include_inherited;
+    const char *hx_swap_inherited;
+    const char *hx_headers_inherited;
+    const char *hx_vals_inherited;
+    const char *hx_confirm_inherited;
+    const char *hx_indicator_inherited;
+    const char *hx_sync_inherited;
+    const char *hx_config_inherited;
+    const char *hx_boost_inherited;
+    const char *hx_disable_inherited;
+    const char *hx_encoding_inherited;
+    const char *hx_validate_inherited;
+
+    // HTMX 4 Inheritance Modifiers (:append and :inherited:append)
+    const char *hx_include_append;
+    const char *hx_include_inherited_append;
+    const char *hx_headers_append;
+    const char *hx_headers_inherited_append;
+    const char *hx_vals_append;
+    const char *hx_vals_inherited_append;
+
+    // HTMX 4 Status Response Handlers
+    const char *hx_status_200;
+    const char *hx_status_204;
+    const char *hx_status_304;
+    const char *hx_status_400;
+    const char *hx_status_401;
+    const char *hx_status_403;
+    const char *hx_status_404;
+    const char *hx_status_422;
+    const char *hx_status_4xx;
+    const char *hx_status_500;
+    const char *hx_status_502;
+    const char *hx_status_503;
+    const char *hx_status_5xx;
+
+    // HTMX Boolean / Flag Attributes
+    bool hx_preserve;
+    bool hx_ignore;
+    bool hx_morph_skip;
+    bool hx_morph_skip_children;
 
     // Boolean Attributes
     bool disabled;

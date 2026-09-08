@@ -63,7 +63,7 @@ static void showcase_page(const MzRequest *req, MzResponse *res, void *user_data
             Meta(.charset = "UTF-8");
             Meta(.name = "viewport", .content = "width=device-width, initial-scale=1.0");
             Title() { Text("Mizar — Modern C23 UI Showcase"); }
-            Script(.src = "https://unpkg.com/htmx.org@2.0.4") {}
+            MzHtmx();
             Link(.rel = "stylesheet", .href = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css");
             Script(.defer = true, .src = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js");
             Script(.defer = true, .src = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js");

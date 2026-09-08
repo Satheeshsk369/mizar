@@ -216,4 +216,7 @@ static inline bool Flush(void) {
 #define Var(...)             _MZ_TAG("var",             __VA_ARGS__)
 #define Video(...)           _MZ_TAG("video",           __VA_ARGS__)
 
+// HTMX 4 Elements
+#define HxPartial(...)       _MZ_TAG("hx-partial",      __VA_ARGS__)
+
 #endif

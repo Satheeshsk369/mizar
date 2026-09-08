@@ -72,10 +72,14 @@ void mz_res_set_cookie(MzResponse *res, const char *name, const char *val, MzCoo
 // HTMX Request Inspection
 bool mz_req_is_htmx(const MzRequest *req);
 bool mz_req_is_htmx_boosted(const MzRequest *req);
+bool mz_req_is_htmx_history_restore(const MzRequest *req);
 const char *mz_req_htmx_target(const MzRequest *req);
-const char *mz_req_htmx_trigger(const MzRequest *req);
-const char *mz_req_htmx_trigger_name(const MzRequest *req);
-const char *mz_req_htmx_prompt(const MzRequest *req);
+const char *mz_req_htmx_source(const MzRequest *req);        // HTMX 4: tag#id
+const char *mz_req_htmx_trigger(const MzRequest *req);       // HTMX 2/4 trigger ID or event
+const char *mz_req_htmx_trigger_name(const MzRequest *req);  // HTMX 2 compatibility alias
+const char *mz_req_htmx_request_type(const MzRequest *req);  // HTMX 4: "full" | "partial"
+const char *mz_req_htmx_current_url(const MzRequest *req);   // HX-Current-URL
+const char *mz_req_htmx_prompt(const MzRequest *req);        // HX-Prompt
 
 // Response helpers
 void mz_res_init(MzResponse *res);
@@ -89,10 +93,12 @@ void mz_res_json(MzResponse *res);
 // First-Class HTMX Response Modifiers
 void mz_res_retarget(MzResponse *res, const char *target_selector);
 void mz_res_reswap(MzResponse *res, const char *swap_style);
+void mz_res_reselect(MzResponse *res, const char *select_selector);
 void mz_res_push_url(MzResponse *res, const char *url);
 void mz_res_replace_url(MzResponse *res, const char *url);
 void mz_res_refresh(MzResponse *res);
 void mz_res_redirect(MzResponse *res, const char *url);
+void mz_res_location(MzResponse *res, const char *url_or_spec);
 void mz_res_trigger(MzResponse *res, const char *event_name);
 void mz_res_trigger_after_swap(MzResponse *res, const char *event_name);
 void mz_res_trigger_after_settle(MzResponse *res, const char *event_name);

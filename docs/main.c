@@ -101,7 +101,7 @@ static void content_quickstart(void) {
                  "    Html(&res->body, .lang = \"en\") {\n"
                  "        Head() {\n"
                  "            Title() { Text(\"My C Web App\"); }\n"
-                 "            Script(.src = \"https://unpkg.com/htmx.org@2.0.4\") {}\n"
+                 "            MzHtmx();\n"
                  "        }\n"
                  "        Body() {\n"
                  "            H1() { Text(\"Welcome to Mizar\"); }\n"

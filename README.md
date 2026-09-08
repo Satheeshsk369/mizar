@@ -53,7 +53,7 @@ static void handle_index(const MzRequest *req, MzResponse *res, void *user_data)
     Html(&res->body, .lang = "en") {
         Head() {
             Title() { Text("My App"); }
-            Script(.src = "https://unpkg.com/htmx.org@2.0.4") {}
+            MzHtmx();
         }
         Body() {
             page_content();

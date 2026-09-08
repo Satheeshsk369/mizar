@@ -123,8 +123,17 @@ bool mz_req_is_htmx_boosted(const MzRequest *req) {
     return (val != nullptr && strcmp(val, "true") == 0);
 }
 
+bool mz_req_is_htmx_history_restore(const MzRequest *req) {
+    const char *val = mz_req_header(req, "HX-History-Restore-Request");
+    return (val != nullptr && strcmp(val, "true") == 0);
+}
+
 const char *mz_req_htmx_target(const MzRequest *req) {
     return mz_req_header(req, "HX-Target");
+}
+
+const char *mz_req_htmx_source(const MzRequest *req) {
+    return mz_req_header(req, "HX-Source");
 }
 
 const char *mz_req_htmx_trigger(const MzRequest *req) {
@@ -132,7 +141,17 @@ const char *mz_req_htmx_trigger(const MzRequest *req) {
 }
 
 const char *mz_req_htmx_trigger_name(const MzRequest *req) {
-    return mz_req_header(req, "HX-Trigger-Name");
+    // HTMX 2 used HX-Trigger-Name; HTMX 4 uses HX-Source
+    const char *v = mz_req_header(req, "HX-Trigger-Name");
+    return v ? v : mz_req_header(req, "HX-Source");
+}
+
+const char *mz_req_htmx_request_type(const MzRequest *req) {
+    return mz_req_header(req, "HX-Request-Type");
+}
+
+const char *mz_req_htmx_current_url(const MzRequest *req) {
+    return mz_req_header(req, "HX-Current-URL");
 }
 
 const char *mz_req_htmx_prompt(const MzRequest *req) {
@@ -191,6 +210,10 @@ void mz_res_reswap(MzResponse *res, const char *swap_style) {
     mz_res_header(res, "HX-Reswap", swap_style);
 }
 
+void mz_res_reselect(MzResponse *res, const char *select_selector) {
+    mz_res_header(res, "HX-Reselect", select_selector);
+}
+
 void mz_res_push_url(MzResponse *res, const char *url) {
     mz_res_header(res, "HX-Push-Url", url);
 }
@@ -205,6 +228,10 @@ void mz_res_refresh(MzResponse *res) {
 
 void mz_res_redirect(MzResponse *res, const char *url) {
     mz_res_header(res, "HX-Redirect", url);
+}
+
+void mz_res_location(MzResponse *res, const char *url_or_spec) {
+    mz_res_header(res, "HX-Location", url_or_spec);
 }
 
 void mz_res_trigger(MzResponse *res, const char *event_name) {
