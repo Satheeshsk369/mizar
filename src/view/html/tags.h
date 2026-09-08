@@ -54,10 +54,16 @@ static inline void mz_void_tag(const char *tag, Attrs attrs) {
          !_mz_doc; \
          _mz_doc = 1, mz_tag_close("html"), mz_context_pop())
 
+static inline void mz_text_str(const char *str) {
+    MizarBuffer *buf = mz_context_get();
+    if (!buf || !str) return;
+    mz_buf_append_escaped(buf, str, strlen(str));
+}
+
 #if defined(__GNUC__) || defined(__clang__)
 __attribute__((format(printf, 1, 2)))
 #endif
-static inline void Text(const char *fmt, ...) {
+static inline void mz_text_fmt(const char *fmt, ...) {
     MizarBuffer *buf = mz_context_get();
     if (!buf || !fmt) return;
     va_list args;
@@ -90,6 +96,11 @@ static inline void Text(const char *fmt, ...) {
     }
     va_end(args);
 }
+
+// Overload Text macro: 1 argument -> mz_text_str (no format-security warning), 2+ arguments -> mz_text_fmt
+#define _MZ_TEXT_CHOOSER(_1, _2, _3, _4, _5, _6, _7, _8, NAME, ...) NAME
+#define Text(...) _MZ_TEXT_CHOOSER(__VA_ARGS__, mz_text_fmt, mz_text_fmt, mz_text_fmt, mz_text_fmt, mz_text_fmt, mz_text_fmt, mz_text_fmt, mz_text_str)(__VA_ARGS__)
+#define MzText(...) Text(__VA_ARGS__)
 
 static inline void Comment(const char *fmt, ...) {
     MizarBuffer *buf = mz_context_get();

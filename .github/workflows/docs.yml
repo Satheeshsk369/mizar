@@ -1,4 +1,4 @@
-name: Deploy Documentation (GitHub Pages)
+name: Deploy Documentation
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
           restore-keys: |
             apt-gcc14-${{ runner.os }}
 
-      - name: Setup GCC 14 (Native Host)
+      - name: Setup GCC 14 
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends gcc-14 pkg-config make
@@ -45,6 +45,8 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3

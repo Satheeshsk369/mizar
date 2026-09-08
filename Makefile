@@ -1,6 +1,6 @@
 CC ?= gcc
 AR ?= ar
-CFLAGS ?= -std=c23 -Wall -Wextra -O2 -fPIC -Isrc
+CFLAGS ?= -std=c23 -Wall -Wextra -Wformat -Wformat-security -O2 -fPIC -Isrc
 
 # Optional BearSSL TLS Support (make TLS=1)
 ifeq ($(TLS),1)
