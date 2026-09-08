@@ -34,5 +34,7 @@ void mz_buf_clear(MizarBuffer *buf);
 void mz_context_push(MizarBuffer *buf);
 void mz_context_pop(void);
 MizarBuffer *mz_context_get(void);
+int mz_context_get_depth(void);
+void mz_context_restore_depth(int depth);
 
 #endif

@@ -124,7 +124,14 @@ test: $(LIB_STATIC)
 	@./build/test_icons
 	@$(CC) $(CFLAGS) test/test_tls.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_tls
 	@./build/test_tls
+	@$(CC) $(CFLAGS) test/test_fuzz.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_fuzz
+	@./build/test_fuzz
 	@echo "All tests passed cleanly."
+
+test-sanitize:
+	@mkdir -p build
+	@$(MAKE) clean
+	@$(MAKE) CFLAGS="$(CFLAGS) -fsanitize=address,undefined -g" LIBS_EXTRA="$(LIBS_EXTRA) -fsanitize=address,undefined" test
 
 install: all
 	@mkdir -p $(DESTDIR)$(BINDIR)

@@ -8,6 +8,7 @@
 
 #define MZ_HTTP_MAX_HEADERS 64
 #define MZ_HTTP_MAX_PARAMS  32
+#define MZ_HTTP_MAX_COOKIES 32
 
 typedef struct {
     char *key;
@@ -18,6 +19,11 @@ typedef struct {
     char *key;
     char *value;
 } MzParam;
+
+typedef struct {
+    char *name;
+    char *value;
+} MzCookie;
 
 typedef struct {
     char *method;          // "GET", "POST", "PUT", "DELETE", etc.
@@ -35,6 +41,9 @@ typedef struct {
 
     MzParam forms[MZ_HTTP_MAX_PARAMS];    // Parsed form-urlencoded body fields
     size_t form_count;
+
+    MzCookie cookies[MZ_HTTP_MAX_COOKIES]; // Parsed Cookie header pairs
+    size_t cookie_count;
 
     char *body;
     size_t body_len;
@@ -93,6 +102,7 @@ typedef struct {
     int max_age;
     bool http_only;
     bool secure;
+    bool partitioned;
     const char *same_site; // "Strict", "Lax", "None"
 } MzCookieOpts;
 

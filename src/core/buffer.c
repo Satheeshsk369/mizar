@@ -26,6 +26,16 @@ MizarBuffer *mz_context_get(void) {
     return nullptr;
 }
 
+int mz_context_get_depth(void) {
+    return s_context_depth;
+}
+
+void mz_context_restore_depth(int depth) {
+    if (depth >= 0 && depth <= MZ_MAX_CONTEXT_DEPTH) {
+        s_context_depth = depth;
+    }
+}
+
 void mz_buf_init(MizarBuffer *buf, size_t initial_cap) {
     if (!buf) return;
     if (initial_cap < 256) initial_cap = 256;

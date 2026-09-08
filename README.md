@@ -164,17 +164,25 @@ Middlewares follow `bool (*)(const MzRequest *req, MzResponse *res, void *user_d
 - `mz_middleware_cors`: Configures CORS headers and handles preflight OPTIONS.
 
 ### 5. Session Management & Flash Messages
-- `MzSessionStore`: Thread-safe in-memory session store indexed by token cookies with configurable TTL.
+- Cryptographic Sessions: Tamper-proof cookie sessions signed with standard RFC 2104 **HMAC-SHA256** and verified in constant time (`mz_crypto_timing_safe_eq`), protecting against forged credentials and side-channel timing attacks.
 - Flash messages: One-time messages stored across HTTP redirects (`mz_flash_set(...)` / `MzFlashContainer()`).
 
-### 6. BearSSL TLS
+### 6. Macro Namespace Isolation (`MIZAR_NO_SHORT_TAGS`)
+To prevent collisions with POSIX headers (such as `select()` in `<sys/select.h>` or `time()` in `<time.h>`), all HTML elements provide canonical prefixed macros (`MzDiv`, `MzSelect`, `MzTime`, `MzTable`, etc.).
+Define `MIZAR_NO_SHORT_TAGS` before including `<mizar.h>` in projects that require standard POSIX socket and time headers.
+
+### 7. High-Performance Radix Tree Routing & Streaming TCP
+- $O(k)$ Radix tree router supporting static paths, parameterized segments (`:id`), and wildcards (`*`).
+- Non-blocking socket I/O with automatic multi-chunk buffering and partial `send()` handling resistant to slowloris and TCP fragmentation.
+
+### 8. BearSSL TLS
 Compile with `TLS=1` to link BearSSL for HTTPS support:
 
 ```c
 mz_app_listen_tls(&app, 8443, "cert.pem", "key.pem");
 ```
 
-### 7. Static Site Generation (SSG)
+### 9. Static Site Generation (SSG)
 Pre-render static sites to disk with layout composition and static asset syncing:
 
 ```c

@@ -6,6 +6,7 @@
 #endif
 
 #include "server/http.h"
+#include "core/sha256.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -25,23 +26,18 @@ typedef struct {
     bool modified;
 } MzSession;
 
-// 64-bit FNV-1a Hash with secret key
-static inline uint64_t mz_session_fnv1a(const char *data, size_t len, const char *secret) {
-    uint64_t hash = 14695981039346656037ULL;
-    if (secret) {
-        while (*secret) {
-            hash ^= (uint8_t)(*secret++);
-            hash *= 1099511628211ULL;
-        }
+// Cryptographic HMAC-SHA256 signature generator (64-char hex output + null)
+static inline void mz_session_compute_hmac_hex(const char *data, size_t len, const char *secret, char out_hex[65]) {
+    uint8_t digest[32];
+    size_t secret_len = secret ? strlen(secret) : 0;
+    mz_hmac_sha256(secret ? secret : "", secret_len, data, len, digest);
+    for (int i = 0; i < 32; i++) {
+        snprintf(out_hex + (i * 2), 3, "%02x", digest[i]);
     }
-    for (size_t i = 0; i < len; i++) {
-        hash ^= (uint8_t)(data[i]);
-        hash *= 1099511628211ULL;
-    }
-    return hash;
+    out_hex[64] = '\0';
 }
 
-// Simple base64/hex signature encoder
+// Backward-compatibility / internal 64-bit helper if needed
 static inline void mz_session_sig_to_hex(uint64_t sig, char *out_hex) {
     snprintf(out_hex, 17, "%016llx", (unsigned long long)sig);
 }
@@ -55,19 +51,19 @@ static inline bool mz_session_read(const MzRequest *req, const char *secret, MzS
     const char *cookie = mz_req_cookie(req, MZ_SESSION_COOKIE_NAME);
     if (!cookie || !*cookie) return false;
 
-    // Expected format: <payload>.<16_hex_sig>
+    // Expected format: <payload>.<64_hex_hmac_sha256>
     const char *dot = strrchr(cookie, '.');
     if (!dot || (size_t)(dot - cookie) == 0) return false;
 
     size_t payload_len = (size_t)(dot - cookie);
     const char *sig_str = dot + 1;
-    if (strlen(sig_str) != 16) return false;
+    if (strlen(sig_str) != 64) return false;
 
-    uint64_t expected_sig = mz_session_fnv1a(cookie, payload_len, secret);
-    char expected_hex[17];
-    mz_session_sig_to_hex(expected_sig, expected_hex);
-    if (strcmp(sig_str, expected_hex) != 0) {
-        // Tampered session cookie
+    char expected_hex[65];
+    mz_session_compute_hmac_hex(cookie, payload_len, secret, expected_hex);
+
+    if (!mz_crypto_timing_safe_eq(sig_str, expected_hex, 64)) {
+        // Tampered session cookie or invalid secret
         return false;
     }
 
@@ -123,13 +119,16 @@ static inline void mz_session_set(MzSession *sess, const char *key, const char *
     for (size_t i = 0; i < sess->count; i++) {
         if (strcmp(sess->entries[i].key, key) == 0) {
             strncpy(sess->entries[i].val, val, sizeof(sess->entries[0].val) - 1);
+            sess->entries[i].val[sizeof(sess->entries[0].val) - 1] = '\0';
             sess->modified = true;
             return;
         }
     }
     if (sess->count < MZ_SESSION_MAX_ENTRIES) {
         strncpy(sess->entries[sess->count].key, key, sizeof(sess->entries[0].key) - 1);
+        sess->entries[sess->count].key[sizeof(sess->entries[0].key) - 1] = '\0';
         strncpy(sess->entries[sess->count].val, val, sizeof(sess->entries[0].val) - 1);
+        sess->entries[sess->count].val[sizeof(sess->entries[0].val) - 1] = '\0';
         sess->count++;
         sess->modified = true;
     }
@@ -177,11 +176,10 @@ static inline void mz_session_write(MzResponse *res, const MzSession *sess, cons
         offset += (size_t)written;
     }
 
-    uint64_t sig = mz_session_fnv1a(payload, offset, secret);
-    char sig_hex[17];
-    mz_session_sig_to_hex(sig, sig_hex);
+    char sig_hex[65];
+    mz_session_compute_hmac_hex(payload, offset, secret, sig_hex);
 
-    char full_cookie[1100];
+    char full_cookie[1200];
     snprintf(full_cookie, sizeof(full_cookie), "%s.%s", payload, sig_hex);
 
     if (!opts.same_site) opts.same_site = "Lax";

@@ -228,28 +228,10 @@ size_t mz_req_form_all(const MzRequest *req, const char *key, const char *out[],
 
 const char *mz_req_cookie(const MzRequest *req, const char *key) {
     if (!req || !key) return nullptr;
-    const char *cookie_hdr = mz_req_header(req, "Cookie");
-    if (!cookie_hdr) return nullptr;
-
-    const char *p = cookie_hdr;
-    size_t key_len = strlen(key);
-    while (*p) {
-        while (*p == ' ' || *p == ';') p++;
-        if (strncmp(p, key, key_len) == 0 && p[key_len] == '=') {
-            const char *val_start = p + key_len + 1;
-            const char *val_end = strchr(val_start, ';');
-            if (!val_end) val_end = val_start + strlen(val_start);
-            // Return thread-local or static buffer to caller
-            static thread_local char cookie_buf[256];
-            size_t vlen = (size_t)(val_end - val_start);
-            if (vlen >= sizeof(cookie_buf)) vlen = sizeof(cookie_buf) - 1;
-            memcpy(cookie_buf, val_start, vlen);
-            cookie_buf[vlen] = '\0';
-            return cookie_buf;
+    for (size_t i = 0; i < req->cookie_count; i++) {
+        if (strcmp(req->cookies[i].name, key) == 0) {
+            return req->cookies[i].value;
         }
-        const char *semi = strchr(p, ';');
-        if (!semi) break;
-        p = semi + 1;
     }
     return nullptr;
 }
@@ -263,12 +245,17 @@ void mz_res_set_cookie(MzResponse *res, const char *name, const char *val, MzCoo
     }
     if (opts.max_age > 0 && n < (int)sizeof(cookie_str)) {
         n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; Max-Age=%d", opts.max_age);
+    } else if (opts.max_age < 0 && n < (int)sizeof(cookie_str)) {
+        n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
     }
     if (opts.http_only && n < (int)sizeof(cookie_str)) {
         n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; HttpOnly");
     }
     if (opts.secure && n < (int)sizeof(cookie_str)) {
         n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; Secure");
+    }
+    if (opts.partitioned && n < (int)sizeof(cookie_str)) {
+        n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; Partitioned");
     }
     if (opts.same_site && n < (int)sizeof(cookie_str)) {
         n += snprintf(cookie_str + n, sizeof(cookie_str) - n, "; SameSite=%s", opts.same_site);
@@ -482,6 +469,27 @@ bool mz_http_parse_request(const char *raw, size_t raw_len, MzRequest *req) {
                 val_start++;
             }
             req->headers[req->header_count].value = mz_strndup(val_start, next_crlf - val_start);
+
+            // If Cookie header, parse cookies into request
+            if (mz_strcasecmp(req->headers[req->header_count].key, "Cookie") == 0) {
+                const char *cp = req->headers[req->header_count].value;
+                while (*cp && req->cookie_count < MZ_HTTP_MAX_COOKIES) {
+                    while (*cp == ' ' || *cp == ';') cp++;
+                    if (!*cp) break;
+                    const char *eq = strchr(cp, '=');
+                    const char *semi = strchr(cp, ';');
+                    if (!semi) semi = cp + strlen(cp);
+
+                    if (eq && eq < semi) {
+                        req->cookies[req->cookie_count].name = mz_strndup(cp, eq - cp);
+                        req->cookies[req->cookie_count].value = mz_strndup(eq + 1, semi - (eq + 1));
+                        req->cookie_count++;
+                    }
+                    if (*semi == ';') cp = semi + 1;
+                    else break;
+                }
+            }
+
             req->header_count++;
         }
         p = next_crlf + 2;
@@ -528,6 +536,10 @@ void mz_req_free(MzRequest *req) {
     for (size_t i = 0; i < req->form_count; i++) {
         free(req->forms[i].key);
         free(req->forms[i].value);
+    }
+    for (size_t i = 0; i < req->cookie_count; i++) {
+        free(req->cookies[i].name);
+        free(req->cookies[i].value);
     }
     memset(req, 0, sizeof(MzRequest));
 }

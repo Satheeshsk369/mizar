@@ -2,6 +2,7 @@
 #define _DEFAULT_SOURCE
 #include "server/app.h"
 #include "server/tls.h"
+#include "server/radix.h"
 #include "ssg/fs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <pthread.h>
+#include <poll.h>
 
 // Platform multiplexer selection
 #if defined(__linux__)
@@ -32,6 +34,8 @@
 
 #define MZ_MAX_EVENTS 512
 #define MZ_BUFFER_SIZE 8192
+#define MZ_MAX_REQUEST_SIZE (10 * 1024 * 1024) // 10MB maximum request size
+#define MZ_MAX_HEADER_SIZE  (64 * 1024)        // 64KB maximum header size
 
 typedef struct {
     MzApp *app;
@@ -94,6 +98,7 @@ void mz_app_init(MzApp *app) {
     if (!app) return;
     memset(app, 0, sizeof(MzApp));
     app->worker_threads = 4;
+    app->radix_tree = mz_radix_node_create("", MZ_NODE_STATIC, nullptr);
 }
 
 void mz_app_set_workers(MzApp *app, int num_threads) {
@@ -109,6 +114,11 @@ void mz_app_free(MzApp *app) {
         free(app->routes[i].pattern);
     }
     free(app->routes);
+
+    if (app->radix_tree) {
+        mz_radix_node_free((MzRadixNode *)app->radix_tree);
+        app->radix_tree = nullptr;
+    }
 
     free(app->middlewares);
     free(app->static_dir);
@@ -155,6 +165,11 @@ void mz_app_route_impl(MzApp *app, const char *method, const char *pattern, MzHa
     app->routes[app->route_count].handler = handler;
     app->routes[app->route_count].user_data = user_data;
     app->route_count++;
+
+    if (!app->radix_tree) {
+        app->radix_tree = mz_radix_node_create("", MZ_NODE_STATIC, nullptr);
+    }
+    mz_radix_insert((MzRadixNode *)app->radix_tree, method, pattern, handler, user_data);
 }
 
 void mz_app_get_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
@@ -238,10 +253,13 @@ static const char *mz_mime_type_for_file(const char *path) {
 void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res) {
     if (!app || !req || !res) return;
 
+    int saved_context_depth = mz_context_get_depth();
+
     // 1. Middleware chain
     for (size_t i = 0; i < app->middleware_count; i++) {
         bool cont = app->middlewares[i].fn(req, res, app->middlewares[i].user_data);
         if (!cont) {
+            mz_context_restore_depth(saved_context_depth);
             return;
         }
     }
@@ -286,13 +304,16 @@ void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res) {
                     mz_res_status(res, 200, "OK");
                     mz_res_content_type(res, mz_mime_type_for_file(canonical_file));
 
-                    // Limit static file memory allocation to 64MB max to prevent memory exhaustion
+                    // Chunked streaming read into response buffer (prevents massive monolithic allocations)
                     if (fsize > 0 && fsize < 64 * 1024 * 1024) {
-                        char *buf = (char *)malloc(fsize);
-                        if (buf) {
-                            size_t rd = fread(buf, 1, fsize, f);
-                            mz_buf_append(&res->body, buf, rd);
-                            free(buf);
+                        char chunk[16384];
+                        size_t remaining = (size_t)fsize;
+                        while (remaining > 0) {
+                            size_t to_read = remaining < sizeof(chunk) ? remaining : sizeof(chunk);
+                            size_t rd = fread(chunk, 1, to_read, f);
+                            if (rd == 0) break;
+                            mz_buf_append(&res->body, chunk, rd);
+                            remaining -= rd;
                         }
                     }
                     fclose(f);
@@ -302,16 +323,28 @@ void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res) {
         }
     }
 
-    // 3. Match Routes
-    for (size_t i = 0; i < app->route_count; i++) {
-        MzRouteEntry *r = &app->routes[i];
-        if (strcmp(r->method, "*") != 0 && strcmp(r->method, req->method) != 0) {
-            continue;
-        }
-
-        if (mz_match_path(r->pattern, req->path, req)) {
-            r->handler(req, res, r->user_data);
+    // 3. Match Routes via Radix Tree (O(k) where k is path length)
+    if (app->radix_tree) {
+        MzHandlerFn matched_handler = nullptr;
+        void *matched_udata = nullptr;
+        if (mz_radix_find((MzRadixNode *)app->radix_tree, req->method, req->path, req, &matched_handler, &matched_udata)) {
+            matched_handler(req, res, matched_udata);
+            mz_context_restore_depth(saved_context_depth);
             return;
+        }
+    } else {
+        // Fallback linear route matching
+        for (size_t i = 0; i < app->route_count; i++) {
+            MzRouteEntry *r = &app->routes[i];
+            if (strcmp(r->method, "*") != 0 && strcmp(r->method, req->method) != 0) {
+                continue;
+            }
+
+            if (mz_match_path(r->pattern, req->path, req)) {
+                r->handler(req, res, r->user_data);
+                mz_context_restore_depth(saved_context_depth);
+                return;
+            }
         }
     }
 
@@ -319,18 +352,136 @@ void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res) {
     mz_res_status(res, 404, "Not Found");
     mz_res_html(res);
     mz_buf_append_str(&res->body, "<h1>404 Not Found</h1><p>The requested route does not exist.</p>");
+    mz_context_restore_depth(saved_context_depth);
+}
+
+// Robust write loop: sends entire buffer handling partial writes and EAGAIN/EWOULDBLOCK
+static bool mz_socket_write_all(int fd, const char *data, size_t total_len) {
+    size_t sent = 0;
+    while (sent < total_len) {
+#if defined(__linux__)
+        ssize_t n = send(fd, data + sent, total_len - sent, MSG_NOSIGNAL);
+#else
+        ssize_t n = send(fd, data + sent, total_len - sent, 0);
+#endif
+        if (n > 0) {
+            sent += (size_t)n;
+            continue;
+        }
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Wait briefly for socket buffer to become writable
+                struct pollfd pfd = { .fd = fd, .events = POLLOUT, .revents = 0 };
+                int pr = poll(&pfd, 1, 5000); // 5-second socket write timeout
+                if (pr > 0 && (pfd.revents & POLLOUT)) {
+                    continue;
+                }
+                return false;
+            }
+            return false;
+        }
+        return false;
+    }
+    return true;
 }
 
 // Processes a client request, returns true if connection should remain alive
 static bool mz_process_client(MzApp *app, int client_fd) {
-    char req_buf[MZ_BUFFER_SIZE];
-    ssize_t bytes_read = recv(client_fd, req_buf, sizeof(req_buf) - 1, 0);
-    if (bytes_read <= 0) return false;
+    // Dynamic accumulator buffer to safely handle partial packets, bodies > 8KB, and slowloris
+    size_t cap = 8192;
+    size_t len = 0;
+    char *buf = (char *)malloc(cap);
+    if (!buf) return false;
 
-    req_buf[bytes_read] = '\0';
+    size_t expected_total_len = 0;
+    bool headers_complete = false;
+
+    while (1) {
+        if (len + MZ_BUFFER_SIZE + 1 > cap) {
+            if (cap * 2 > MZ_MAX_REQUEST_SIZE) {
+                free(buf);
+                return false; // Request too large
+            }
+            cap *= 2;
+            char *nb = (char *)realloc(buf, cap);
+            if (!nb) {
+                free(buf);
+                return false;
+            }
+            buf = nb;
+        }
+
+        ssize_t bytes_read = recv(client_fd, buf + len, MZ_BUFFER_SIZE, 0);
+        if (bytes_read < 0) {
+            if (errno == EINTR) continue;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if (len == 0) {
+                    free(buf);
+                    return false;
+                }
+                // If we've started reading, wait for remaining data
+                struct pollfd pfd = { .fd = client_fd, .events = POLLIN, .revents = 0 };
+                int pr = poll(&pfd, 1, 3000); // 3-second read window
+                if (pr > 0 && (pfd.revents & POLLIN)) {
+                    continue;
+                }
+                free(buf);
+                return false;
+            }
+            free(buf);
+            return false;
+        }
+        if (bytes_read == 0) {
+            // Client closed connection
+            if (len == 0) {
+                free(buf);
+                return false;
+            }
+            break;
+        }
+
+        len += (size_t)bytes_read;
+        buf[len] = '\0';
+
+        if (!headers_complete) {
+            const char *hdr_end = strstr(buf, "\r\n\r\n");
+            if (hdr_end) {
+                headers_complete = true;
+                size_t header_len = (size_t)(hdr_end + 4 - buf);
+                if (header_len > MZ_MAX_HEADER_SIZE) {
+                    free(buf);
+                    return false;
+                }
+
+                // Check for Content-Length
+                size_t content_length = 0;
+                const char *cl_ptr = strcasestr(buf, "Content-Length:");
+                if (cl_ptr && cl_ptr < hdr_end) {
+                    cl_ptr += 15;
+                    while (*cl_ptr == ' ' || *cl_ptr == '\t') cl_ptr++;
+                    content_length = (size_t)strtoull(cl_ptr, nullptr, 10);
+                }
+
+                expected_total_len = header_len + content_length;
+                if (expected_total_len > MZ_MAX_REQUEST_SIZE) {
+                    free(buf);
+                    return false;
+                }
+            } else if (len > MZ_MAX_HEADER_SIZE) {
+                free(buf);
+                return false;
+            }
+        }
+
+        if (headers_complete && len >= expected_total_len) {
+            break; // Full request received
+        }
+    }
 
     MzRequest req;
-    if (!mz_http_parse_request(req_buf, bytes_read, &req)) {
+    if (!mz_http_parse_request(buf, len, &req)) {
+        free(buf);
         return false;
     }
 
@@ -363,17 +514,14 @@ static bool mz_process_client(MzApp *app, int client_fd) {
         mz_buf_append(&out, res.body.data, res.body.len);
     }
 
-#if defined(__linux__)
-    send(client_fd, out.data, out.len, MSG_NOSIGNAL);
-#else
-    send(client_fd, out.data, out.len, 0);
-#endif
+    bool write_ok = mz_socket_write_all(client_fd, out.data, out.len);
 
     mz_buf_free(&out);
     mz_res_free(&res);
     mz_req_free(&req);
+    free(buf);
 
-    return keep_alive;
+    return keep_alive && write_ok;
 }
 
 #if defined(MZ_USE_EPOLL)
