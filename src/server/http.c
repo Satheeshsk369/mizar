@@ -26,6 +26,9 @@ static int mz_strcasecmp(const char *s1, const char *s2) {
 
 const char *mz_req_header(const MzRequest *req, const char *key) {
     if (!req || !key) return nullptr;
+    if (req->header_map.capacity > 0) {
+        return (const char *)mz_map_get_cstr(&req->header_map, key);
+    }
     for (size_t i = 0; i < req->header_count; i++) {
         if (mz_strcasecmp(req->headers[i].key, key) == 0) {
             return req->headers[i].value;
@@ -46,6 +49,9 @@ const char *mz_req_param(const MzRequest *req, const char *key) {
 
 const char *mz_req_query(const MzRequest *req, const char *key) {
     if (!req || !key) return nullptr;
+    if (req->query_map.capacity > 0) {
+        return (const char *)mz_map_get_cstr(&req->query_map, key);
+    }
     for (size_t i = 0; i < req->query_count; i++) {
         if (strcmp(req->queries[i].key, key) == 0) {
             return req->queries[i].value;
@@ -56,6 +62,9 @@ const char *mz_req_query(const MzRequest *req, const char *key) {
 
 const char *mz_req_form(const MzRequest *req, const char *key) {
     if (!req || !key) return nullptr;
+    if (req->form_map.capacity > 0) {
+        return (const char *)mz_map_get_cstr(&req->form_map, key);
+    }
     for (size_t i = 0; i < req->form_count; i++) {
         if (strcmp(req->forms[i].key, key) == 0) {
             return req->forms[i].value;
@@ -228,6 +237,9 @@ size_t mz_req_form_all(const MzRequest *req, const char *key, const char *out[],
 
 const char *mz_req_cookie(const MzRequest *req, const char *key) {
     if (!req || !key) return nullptr;
+    if (req->cookie_map.capacity > 0) {
+        return (const char *)mz_map_get_cstr(&req->cookie_map, key);
+    }
     for (size_t i = 0; i < req->cookie_count; i++) {
         if (strcmp(req->cookies[i].name, key) == 0) {
             return req->cookies[i].value;
@@ -396,7 +408,7 @@ void mz_res_trigger_after_settle(MzResponse *res, const char *event_name) {
     mz_res_header(res, "HX-Trigger-After-Settle", event_name);
 }
 
-static void mz_parse_kv_string(const char *qs, MzParam *arr, size_t *count, size_t max_count) {
+static void mz_parse_kv_string(MzArena *arena, const char *qs, MzParam *arr, size_t *count, size_t max_count) {
     if (!qs || !*qs || !arr || !count) return;
     const char *p = qs;
     while (*p && *count < max_count) {
@@ -407,15 +419,31 @@ static void mz_parse_kv_string(const char *qs, MzParam *arr, size_t *count, size
         if (eq && eq < amp) {
             char *raw_k = mz_strndup(p, eq - p);
             char *raw_v = mz_strndup(eq + 1, amp - (eq + 1));
-            arr[*count].key = mz_url_decode(raw_k, strlen(raw_k), true);
-            arr[*count].value = mz_url_decode(raw_v, strlen(raw_v), true);
+            char *dec_k = mz_url_decode(raw_k, strlen(raw_k), true);
+            char *dec_v = mz_url_decode(raw_v, strlen(raw_v), true);
+            if (arena) {
+                arr[*count].key = mz_arena_strdup(arena, dec_k);
+                arr[*count].value = mz_arena_strdup(arena, dec_v);
+                free(dec_k);
+                free(dec_v);
+            } else {
+                arr[*count].key = dec_k;
+                arr[*count].value = dec_v;
+            }
             free(raw_k);
             free(raw_v);
             (*count)++;
         } else {
             char *raw_k = mz_strndup(p, amp - p);
-            arr[*count].key = mz_url_decode(raw_k, strlen(raw_k), true);
-            arr[*count].value = strdup("");
+            char *dec_k = mz_url_decode(raw_k, strlen(raw_k), true);
+            if (arena) {
+                arr[*count].key = mz_arena_strdup(arena, dec_k);
+                arr[*count].value = mz_arena_strdup(arena, "");
+                free(dec_k);
+            } else {
+                arr[*count].key = dec_k;
+                arr[*count].value = strdup("");
+            }
             free(raw_k);
             (*count)++;
         }
@@ -429,6 +457,13 @@ bool mz_http_parse_request(const char *raw, size_t raw_len, MzRequest *req) {
     if (!raw || !req || raw_len == 0) return false;
     memset(req, 0, sizeof(MzRequest));
 
+    mz_arena_init(&req->arena, 8192);
+    // Arena-backed hash maps: zero individual mallocs, zero per-field free overhead
+    mz_map_init_arena(&req->header_map, 32, true, &req->arena);
+    mz_map_init_arena(&req->cookie_map, 0, false, &req->arena); // Lazy initial capacity
+    mz_map_init_arena(&req->query_map, 0, false, &req->arena);  // Lazy initial capacity
+    mz_map_init_arena(&req->form_map, 0, false, &req->arena);   // Lazy initial capacity
+
     const char *line_end = strstr(raw, "\r\n");
     if (!line_end) return false;
 
@@ -437,16 +472,19 @@ bool mz_http_parse_request(const char *raw, size_t raw_len, MzRequest *req) {
     if (sscanf(raw, "%15s %1023s", method, url) < 2) {
         return false;
     }
-    req->method = strdup(method);
+    req->method = mz_arena_strdup(&req->arena, method);
 
     char *q = strchr(url, '?');
     if (q) {
-        req->path = mz_strndup(url, q - url);
-        req->query_string = strdup(q + 1);
-        mz_parse_kv_string(req->query_string, req->queries, &req->query_count, MZ_HTTP_MAX_PARAMS);
+        req->path = mz_arena_strndup(&req->arena, url, q - url);
+        req->query_string = mz_arena_strdup(&req->arena, q + 1);
+        mz_parse_kv_string(&req->arena, req->query_string, req->queries, &req->query_count, MZ_HTTP_MAX_PARAMS);
+        for (size_t i = 0; i < req->query_count; i++) {
+            mz_map_set_cstr(&req->query_map, req->queries[i].key, req->queries[i].value);
+        }
     } else {
-        req->path = strdup(url);
-        req->query_string = strdup("");
+        req->path = mz_arena_strdup(&req->arena, url);
+        req->query_string = mz_arena_strdup(&req->arena, "");
     }
 
     // 2. Headers
@@ -461,14 +499,17 @@ bool mz_http_parse_request(const char *raw, size_t raw_len, MzRequest *req) {
 
         const char *colon = strchr(p, ':');
         if (colon && colon < next_crlf) {
-            req->headers[req->header_count].key = mz_strndup(p, colon - p);
+            req->headers[req->header_count].key = mz_arena_strndup(&req->arena, p, colon - p);
             
             // Skip colon and leading spaces
             const char *val_start = colon + 1;
             while (val_start < next_crlf && (*val_start == ' ' || *val_start == '\t')) {
                 val_start++;
             }
-            req->headers[req->header_count].value = mz_strndup(val_start, next_crlf - val_start);
+            req->headers[req->header_count].value = mz_arena_strndup(&req->arena, val_start, next_crlf - val_start);
+
+            // Index in O(1) header map
+            mz_map_set_cstr(&req->header_map, req->headers[req->header_count].key, req->headers[req->header_count].value);
 
             // If Cookie header, parse cookies into request
             if (mz_strcasecmp(req->headers[req->header_count].key, "Cookie") == 0) {
@@ -481,8 +522,9 @@ bool mz_http_parse_request(const char *raw, size_t raw_len, MzRequest *req) {
                     if (!semi) semi = cp + strlen(cp);
 
                     if (eq && eq < semi) {
-                        req->cookies[req->cookie_count].name = mz_strndup(cp, eq - cp);
-                        req->cookies[req->cookie_count].value = mz_strndup(eq + 1, semi - (eq + 1));
+                        req->cookies[req->cookie_count].name = mz_arena_strndup(&req->arena, cp, eq - cp);
+                        req->cookies[req->cookie_count].value = mz_arena_strndup(&req->arena, eq + 1, semi - (eq + 1));
+                        mz_map_set_cstr(&req->cookie_map, req->cookies[req->cookie_count].name, req->cookies[req->cookie_count].value);
                         req->cookie_count++;
                     }
                     if (*semi == ';') cp = semi + 1;
@@ -499,12 +541,15 @@ bool mz_http_parse_request(const char *raw, size_t raw_len, MzRequest *req) {
     size_t header_len = p - raw;
     if (raw_len > header_len) {
         req->body_len = raw_len - header_len;
-        req->body = mz_strndup(p, req->body_len);
+        req->body = mz_arena_strndup(&req->arena, p, req->body_len);
 
         // Check if application/x-www-form-urlencoded
         const char *ct = mz_req_header(req, "Content-Type");
         if (ct && strstr(ct, "application/x-www-form-urlencoded")) {
-            mz_parse_kv_string(req->body, req->forms, &req->form_count, MZ_HTTP_MAX_PARAMS);
+            mz_parse_kv_string(&req->arena, req->body, req->forms, &req->form_count, MZ_HTTP_MAX_PARAMS);
+            for (size_t i = 0; i < req->form_count; i++) {
+                mz_map_set_cstr(&req->form_map, req->forms[i].key, req->forms[i].value);
+            }
         }
     } else {
         req->body = nullptr;
@@ -516,31 +561,13 @@ bool mz_http_parse_request(const char *raw, size_t raw_len, MzRequest *req) {
 
 void mz_req_free(MzRequest *req) {
     if (!req) return;
-    free(req->method);
-    free(req->path);
-    free(req->query_string);
-    free(req->body);
-
-    for (size_t i = 0; i < req->header_count; i++) {
-        free(req->headers[i].key);
-        free(req->headers[i].value);
-    }
     for (size_t i = 0; i < req->param_count; i++) {
         free(req->params[i].key);
         free(req->params[i].value);
     }
-    for (size_t i = 0; i < req->query_count; i++) {
-        free(req->queries[i].key);
-        free(req->queries[i].value);
-    }
-    for (size_t i = 0; i < req->form_count; i++) {
-        free(req->forms[i].key);
-        free(req->forms[i].value);
-    }
-    for (size_t i = 0; i < req->cookie_count; i++) {
-        free(req->cookies[i].name);
-        free(req->cookies[i].value);
-    }
+    // Instant bulk deallocation of all request strings, hash tables, and buckets!
+    mz_arena_free(&req->arena);
+
     memset(req, 0, sizeof(MzRequest));
 }
 

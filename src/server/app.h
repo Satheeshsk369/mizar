@@ -38,6 +38,7 @@ struct MzApp {
     char *static_prefix; // e.g. "/static"
 
     void *radix_tree;    // O(k) prefix tree routing engine
+    void *static_lru;    // O(1) in-memory LRU cache for static files & metadata
 
     int worker_threads;  // 0 = default (4 threads), or N threads
 };

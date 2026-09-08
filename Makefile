@@ -106,6 +106,8 @@ build/compile_commands.json: $(SRCS)
 
 test: $(LIB_STATIC)
 	@mkdir -p build
+	@$(CC) $(CFLAGS) test/test_algo.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_algo
+	@./build/test_algo
 	@$(CC) $(CFLAGS) test/test_main.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_main
 	@./build/test_main
 	@$(CC) $(CFLAGS) test/test_ssg.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/test_ssg

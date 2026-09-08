@@ -1,4 +1,5 @@
 #include "core/buffer.h"
+#include "algo/utf8.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -156,24 +157,45 @@ void mz_buf_vprintf(MizarBuffer *buf, const char *fmt, va_list args) {
 void mz_buf_append_escaped(MizarBuffer *buf, const char *str, size_t len) {
     if (!buf || !str || len == 0 || buf->has_error) return;
     
+    size_t i = 0;
     size_t start = 0;
-    for (size_t i = 0; i < len; i++) {
+    while (i < len) {
+        uint32_t cp = 0;
+        size_t cp_len = mz_utf8_decode(str + i, len - i, &cp);
+        if (cp_len == 0) {
+            // Invalid UTF-8 byte: replace with Unicode replacement character U+FFFD
+            if (i > start) {
+                mz_buf_append(buf, str + start, i - start);
+            }
+            mz_buf_append(buf, "\xEF\xBF\xBD", 3);
+            i++;
+            start = i;
+            continue;
+        }
+
         const char *replacement = nullptr;
         size_t rep_len = 0;
-        switch (str[i]) {
-            case '&':  replacement = "&amp;";  rep_len = 5; break;
-            case '<':  replacement = "&lt;";   rep_len = 4; break;
-            case '>':  replacement = "&gt;";   rep_len = 4; break;
-            case '"':  replacement = "&quot;"; rep_len = 6; break;
-            case '\'': replacement = "&#39;";  rep_len = 5; break;
-            default:   continue;
+        if (cp_len == 1) {
+            switch (str[i]) {
+                case '&':  replacement = "&amp;";  rep_len = 5; break;
+                case '<':  replacement = "&lt;";   rep_len = 4; break;
+                case '>':  replacement = "&gt;";   rep_len = 4; break;
+                case '"':  replacement = "&quot;"; rep_len = 6; break;
+                case '\'': replacement = "&#39;";  rep_len = 5; break;
+                default:   break;
+            }
         }
-        
-        if (i > start) {
-            mz_buf_append(buf, str + start, i - start);
+
+        if (replacement) {
+            if (i > start) {
+                mz_buf_append(buf, str + start, i - start);
+            }
+            mz_buf_append(buf, replacement, rep_len);
+            i += cp_len;
+            start = i;
+        } else {
+            i += cp_len;
         }
-        mz_buf_append(buf, replacement, rep_len);
-        start = i + 1;
     }
     
     if (len > start) {

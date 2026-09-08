@@ -3,6 +3,9 @@
 
 #include "core/buffer.h"
 #include "core/result.h"
+#include "algo/arena.h"
+#include "algo/hashmap.h"
+#include "algo/strview.h"
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -26,6 +29,12 @@ typedef struct {
 } MzCookie;
 
 typedef struct {
+    MzArena arena;         // Per-request bump memory pool
+    MzHashMap header_map;  // O(1) case-insensitive header lookup
+    MzHashMap cookie_map;  // O(1) cookie lookup
+    MzHashMap query_map;   // O(1) query lookup
+    MzHashMap form_map;    // O(1) form lookup
+
     char *method;          // "GET", "POST", "PUT", "DELETE", etc.
     char *path;            // "/users/42"
     char *query_string;    // "page=1&sort=desc"

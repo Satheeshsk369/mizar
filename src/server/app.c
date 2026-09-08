@@ -2,7 +2,8 @@
 #define _DEFAULT_SOURCE
 #include "server/app.h"
 #include "server/tls.h"
-#include "server/radix.h"
+#include "algo/radix.h"
+#include "algo/lru.h"
 #include "ssg/fs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,11 +95,32 @@ static int mz_create_listener_socket(int port) {
     return server_fd;
 }
 
+typedef struct {
+    char *data;
+    size_t len;
+    char *mime;
+} MzCachedFile;
+
+static void mz_cached_file_free(void *val) {
+    if (!val) return;
+    MzCachedFile *cf = (MzCachedFile *)val;
+    free(cf->data);
+    free(cf->mime);
+    free(cf);
+}
+
 void mz_app_init(MzApp *app) {
     if (!app) return;
     memset(app, 0, sizeof(MzApp));
     app->worker_threads = 4;
     app->radix_tree = mz_radix_node_create("", MZ_NODE_STATIC, nullptr);
+    MzLruCache *lru = (MzLruCache *)malloc(sizeof(MzLruCache));
+    if (lru && mz_lru_init(lru, 64, mz_cached_file_free)) {
+        app->static_lru = lru;
+    } else {
+        free(lru);
+        app->static_lru = nullptr;
+    }
 }
 
 void mz_app_set_workers(MzApp *app, int num_threads) {
@@ -118,6 +140,12 @@ void mz_app_free(MzApp *app) {
     if (app->radix_tree) {
         mz_radix_node_free((MzRadixNode *)app->radix_tree);
         app->radix_tree = nullptr;
+    }
+
+    if (app->static_lru) {
+        mz_lru_free((MzLruCache *)app->static_lru);
+        free(app->static_lru);
+        app->static_lru = nullptr;
     }
 
     free(app->middlewares);
@@ -282,6 +310,17 @@ void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res) {
             char filepath[1024];
             snprintf(filepath, sizeof(filepath), "%s/%s", app->static_dir, subpath);
 
+            // Check LRU cache first for instant static asset delivery
+            if (app->static_lru) {
+                MzCachedFile *cached = (MzCachedFile *)mz_lru_get((MzLruCache *)app->static_lru, req->path);
+                if (cached) {
+                    mz_res_status(res, 200, "OK");
+                    mz_res_content_type(res, cached->mime);
+                    mz_buf_append(&res->body, cached->data, cached->len);
+                    return;
+                }
+            }
+
             // Canonical path check via realpath
             char canonical_base[1024];
             char canonical_file[1024];
@@ -301,8 +340,30 @@ void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res) {
                     long fsize = ftell(f);
                     fseek(f, 0, SEEK_SET);
 
+                    const char *mime = mz_mime_type_for_file(canonical_file);
                     mz_res_status(res, 200, "OK");
-                    mz_res_content_type(res, mz_mime_type_for_file(canonical_file));
+                    mz_res_content_type(res, mime);
+
+                    // If file is <= 1MB, store in LRU cache for hot static asset acceleration
+                    if (app->static_lru && fsize > 0 && fsize <= 1024 * 1024) {
+                        char *cdata = (char *)malloc(fsize);
+                        if (cdata) {
+                            size_t rd = fread(cdata, 1, fsize, f);
+                            mz_buf_append(&res->body, cdata, rd);
+
+                            MzCachedFile *cf = (MzCachedFile *)malloc(sizeof(MzCachedFile));
+                            if (cf) {
+                                cf->data = cdata;
+                                cf->len = rd;
+                                cf->mime = strdup(mime);
+                                mz_lru_put((MzLruCache *)app->static_lru, req->path, cf);
+                            } else {
+                                free(cdata);
+                            }
+                            fclose(f);
+                            return;
+                        }
+                    }
 
                     // Chunked streaming read into response buffer (prevents massive monolithic allocations)
                     if (fsize > 0 && fsize < 64 * 1024 * 1024) {
