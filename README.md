@@ -39,7 +39,7 @@ sudo make uninstall
 Mizar comes with a built-in project generator:
 
 ```bash
-mizar-new my-app
+mizar init my-app
 cd my-app
 make run
 ```

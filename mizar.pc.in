@@ -5,6 +5,6 @@ includedir=@INCLUDEDIR@
 
 Name: mizar
 Description: Mizar: Web Framework
-Version: 0.1.0
-Libs: -L${libdir} -lmizar -lpthread
+Version: @VERSION@
+Libs: -L${libdir} -Wl,-rpath,${libdir} -lmizar -lpthread
 Cflags: -I${includedir}/mizar

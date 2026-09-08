@@ -1,6 +1,7 @@
 #ifndef MIZAR_H
 #define MIZAR_H
 
+#include "core/version.h"
 #include "core/buffer.h"
 #include "core/url.h"
 #include "core/json.h"

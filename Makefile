@@ -29,15 +29,18 @@ INCLUDEDIR ?= $(PREFIX)/include
 LIBDIR ?= $(PREFIX)/lib
 PKGCONFIGDIR ?= $(PREFIX)/share/pkgconfig
 
-SRCS = $(shell find src -name '*.c')
+VERSION ?= $(shell grep '#define MIZAR_VERSION_STRING' src/core/version.h | cut -d '"' -f 2)
+
+SRCS = $(shell find src -name '*.c' ! -name 'cli.c')
 OBJS = $(SRCS:src/%.c=build/%.o)
 
 LIB_STATIC = build/libmizar.a
 LIB_SHARED = build/libmizar.$(SO_EXT)
+CLI_BIN = build/mizar
 
 DOCS_SRCS = $(wildcard docs/*.c)
 
-all: $(LIB_STATIC) $(LIB_SHARED) build/mizar.pc build/compile_commands.json
+all: $(LIB_STATIC) $(LIB_SHARED) $(CLI_BIN) build/mizar.pc build/compile_commands.json
 
 showcase: $(LIB_STATIC)
 	@mkdir -p build
@@ -60,6 +63,10 @@ $(LIB_STATIC): $(OBJS)
 $(LIB_SHARED): $(OBJS)
 	$(CC) $(SHLIB_FLAGS) -o $@ $^ $(LIBS_EXTRA)
 
+$(CLI_BIN): src/cli.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) $< -o $@
+
 build/%.o: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -74,11 +81,12 @@ FORCE:
 
 $(OBJS): build/.tls_mode
 
-build/mizar.pc: mizar.pc.in
+build/mizar.pc: mizar.pc.in src/core/version.h
 	@mkdir -p build
 	@sed -e 's|@PREFIX@|$(PREFIX)|g' \
 	     -e 's|@LIBDIR@|$(LIBDIR)|g' \
 	     -e 's|@INCLUDEDIR@|$(INCLUDEDIR)|g' \
+	     -e 's|@VERSION@|$(VERSION)|g' \
 	     $< > $@
 
 build/compile_commands.json: $(SRCS)
@@ -124,8 +132,8 @@ install: all
 	@mkdir -p $(DESTDIR)$(LIBDIR)
 	@mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig
 	@mkdir -p $(DESTDIR)$(PREFIX)/share/pkgconfig
-	cp bin/mizar-new $(DESTDIR)$(BINDIR)/
-	chmod +x $(DESTDIR)$(BINDIR)/mizar-new
+	cp $(CLI_BIN) $(DESTDIR)$(BINDIR)/mizar
+	chmod 755 $(DESTDIR)$(BINDIR)/mizar
 	cp -r src/* $(DESTDIR)$(INCLUDEDIR)/mizar/
 	find $(DESTDIR)$(INCLUDEDIR)/mizar -name '*.c' -delete
 	cp $(LIB_STATIC) $(DESTDIR)$(LIBDIR)/
@@ -135,7 +143,7 @@ install: all
 	@echo "Mizar successfully installed to $(DESTDIR)$(PREFIX)"
 
 uninstall:
-	rm -f $(DESTDIR)$(BINDIR)/mizar-new
+	rm -f $(DESTDIR)$(BINDIR)/mizar
 	rm -rf $(DESTDIR)$(INCLUDEDIR)/mizar
 	rm -f $(DESTDIR)$(LIBDIR)/libmizar.a
 	rm -f $(DESTDIR)$(LIBDIR)/libmizar.$(SO_EXT)
