@@ -20,17 +20,28 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    container:
-      image: gcc:14
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Cache Compiler Packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-gcc14-${{ runner.os }}
+          restore-keys: |
+            apt-gcc14-${{ runner.os }}
+
+      - name: Setup GCC 14 (Native Host)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc-14 pkg-config make
+
       - name: Build Mizar & Documentation
         run: |
-          make
-          make doc-build
+          make CC=gcc-14
+          make doc-build CC=gcc-14
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -44,7 +55,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - name: Deploy to GitHub Pages
