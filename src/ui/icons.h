@@ -2,45 +2,44 @@
 #define MIZAR_UI_ICONS_H
 
 #include "view/svg/tags.h"
+#include "view/svg/attrs.h"
 #include <stdio.h>
 
 // -----------------------------------------------------------------------------
-// Standard Icon Configuration (Lucide / Heroicons inspired 24x24 grid)
+// Declarative SVG Icons API (Lucide/Feather-compatible 24x24 stroke icons)
 // -----------------------------------------------------------------------------
+
 typedef struct {
-    int size;               // default 20
-    const char *color;      // stroke color, default "currentColor"
-    double stroke_width;    // default 2.0
-    const char *cls;
-    const char *style;
+    int size;                // size in px (default 24 if 0)
+    const char *color;       // stroke color (e.g. "currentColor", "#38bdf8")
+    const char *stroke_width;// stroke-width (default "2")
+    const char *cls;         // CSS classes
+    const char *style;       // custom style string
 } UiIconProps;
 
 static inline void mz_render_icon_svg_open(UiIconProps p) {
-    int sz = p.size > 0 ? p.size : 20;
-    const char *col = p.color ? p.color : "currentColor";
-    double sw = p.stroke_width > 0 ? p.stroke_width : 2.0;
-
-    char sz_str[16], sw_str[16];
-    snprintf(sz_str, sizeof(sz_str), "%d", sz);
-    snprintf(sw_str, sizeof(sw_str), "%.2g", sw);
+    char sz_buf[16];
+    int sz_val = p.size > 0 ? p.size : 24;
+    snprintf(sz_buf, sizeof(sz_buf), "%d", sz_val);
+    const char *sw = (p.stroke_width && *p.stroke_width) ? p.stroke_width : "2";
+    const char *col = (p.color && *p.color) ? p.color : "currentColor";
 
     mz_svg_tag_open("svg", (SvgAttrs){
-        .xmlns = "http://www.w3.org/2000/svg",
-        .width = sz_str,
-        .height = sz_str,
+        .width = sz_buf,
+        .height = sz_buf,
         .viewBox = "0 0 24 24",
         .fill = "none",
         .stroke = col,
-        .stroke_width = sw_str,
+        .stroke_width = sw,
         .stroke_linecap = "round",
         .stroke_linejoin = "round",
-        .cls = p.cls ? p.cls : "mz-icon",
+        .cls = p.cls,
         .style = p.style
     });
 }
 
 // -----------------------------------------------------------------------------
-// 1. Navigation & Directional Icons
+// 1. Navigation & Directional
 // -----------------------------------------------------------------------------
 static inline void mz_icon_chevron_right(UiIconProps p) {
     mz_render_icon_svg_open(p);
@@ -292,4 +291,22 @@ static inline void mz_icon_refresh(UiIconProps p) {
 }
 #define Icon_Refresh(...) mz_icon_refresh((UiIconProps){ __VA_ARGS__ })
 
-#endif
+// -----------------------------------------------------------------------------
+// 6. Theme & Weather
+// -----------------------------------------------------------------------------
+static inline void mz_icon_sun(UiIconProps p) {
+    mz_render_icon_svg_open(p);
+    Svg_Circle_(.cx = "12", .cy = "12", .r = "5");
+    Svg_Path_(.d = "M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42");
+    mz_svg_tag_close("svg");
+}
+#define Icon_Sun(...) mz_icon_sun((UiIconProps){ __VA_ARGS__ })
+
+static inline void mz_icon_moon(UiIconProps p) {
+    mz_render_icon_svg_open(p);
+    Svg_Path_(.d = "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z");
+    mz_svg_tag_close("svg");
+}
+#define Icon_Moon(...) mz_icon_moon((UiIconProps){ __VA_ARGS__ })
+
+#endif // MIZAR_UI_ICONS_H

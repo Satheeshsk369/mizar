@@ -1,10 +1,10 @@
 # Mizar
 
-Mizar is a web framework written in C23. It provides a declarative DSL for HTML5, SVG, MathML, and CSS, along with a static site generator and an HTTP server.
+Mizar is an ISO C23 web library and static site generator. It provides a macro-based DSL for declarative HTML5, SVG, MathML, and CSS, an event-driven HTTP router, middleware pipeline, and session management.
 
 ## Installation
 
-Requirements: A C23-compliant compiler (`gcc` >= 14 or `clang` >= 18).
+Requirements: A C23 compiler (`gcc` >= 14 or `clang` >= 18), GNU Make, and `pkg-config`.
 
 ```bash
 git clone https://github.com/Satheeshsk369/mizar.git
@@ -13,14 +13,14 @@ make
 sudo make install
 ```
 
-To build with native **BearSSL TLS / HTTPS** support:
+To build with native **BearSSL TLS** support:
 
 ```bash
 make TLS=1
 sudo make install TLS=1
 ```
 
-By default, files are installed to `/usr/local`. To install to `/usr`:
+By default, files are installed to `/usr/local`. Override `PREFIX` to change the destination:
 
 ```bash
 sudo make install PREFIX=/usr
@@ -32,11 +32,11 @@ To uninstall:
 sudo make uninstall
 ```
 
-## Quick Start
+## Quickstart
 
 ### 1. Scaffold a New Project
 
-Mizar comes with a built-in project generator:
+Use the `mizar` CLI to initialize a project:
 
 ```bash
 mizar init my-app
@@ -44,9 +44,7 @@ cd my-app
 make run
 ```
 
-Or assemble manually:
-
-### 2. Write `main.c`
+### 2. Application Entrypoint (`main.c`)
 
 ```c
 #include <mizar.h>
@@ -55,18 +53,18 @@ static void handle_home(const MzRequest *req, MzResponse *res, void *user_data) 
     (void)req; (void)user_data;
     mz_res_html(res);
 
-    MzPage(&res->body, .title = "My Mizar App", .theme_color = "#0284c7") {
+    MzPage(&res->body, .title = "Mizar Application", .theme_color = "#0284c7") {
         MzFlashContainer();
 
         Div(.style = "max-width: 640px; margin: 40px auto; font-family: system-ui, sans-serif;") {
-            H1() { Text("Hello from Mizar + HTMX 4"); }
-            P() { Text("High-performance server-driven UI in pure C23."); }
+            H1() { Text("Mizar + HTMX 4"); }
+            P() { Text("Server-rendered UI in C23."); }
 
-            // Turnkey Instant Search Pattern
-            MzSearch(.url = "/api/search", .target = "#results", .placeholder = "Type to search...");
+            // Live search
+            MzSearch(.url = "/api/search", .target = "#results", .placeholder = "Search items...");
             Div(.id = "results", .style = "margin-top: 12px;") {}
 
-            // Turnkey Click-to-Edit Pattern
+            // Click-to-edit field
             MzClickToEdit(.url = "/api/profile/edit", .label = "Username", .value = "alice");
         }
     }
@@ -78,7 +76,7 @@ static void handle_search(const MzRequest *req, MzResponse *res, void *user_data
     mz_res_html(res);
     mz_context_push(&res->body);
     Div(.style = "padding: 8px 12px; background: #f1f5f9; border-radius: 6px;") {
-        Text("Search query: %s", q && *q ? q : "(none)");
+        Text("Query: %s", q && *q ? q : "(none)");
     }
     mz_context_pop();
 }
@@ -88,14 +86,15 @@ int main(void) {
     mz_app_init(&app);
     mz_app_set_workers(&app, 4);
 
-    // Standard security & logging middlewares
+    // Middleware stack
     mz_app_use(&app, mz_middleware_security_headers);
     mz_app_use(&app, mz_middleware_logger);
 
+    // Routes
     mz_app_get(&app, "/", handle_home);
     mz_app_get(&app, "/api/search", handle_search);
 
-    // Run HTTP (or mz_app_listen_tls(&app, 8443, "cert.pem", "key.pem"))
+    // Start HTTP listener (or mz_app_listen_tls for HTTPS)
     mz_app_listen(&app, 3000);
 
     mz_app_free(&app);
@@ -103,36 +102,80 @@ int main(void) {
 }
 ```
 
-### 3. Create `Makefile`
+### 3. Makefile
 
 ```makefile
-CC = gcc
-CFLAGS = -std=c23 -Wall -Wextra -O2 $(shell pkg-config --cflags mizar)
-LIBS = $(shell pkg-config --libs mizar)
+CC ?= gcc
+CFLAGS ?= -std=c23 -Wall -Wextra -O2 $(shell pkg-config --cflags mizar)
+LIBS ?= $(shell pkg-config --libs mizar)
 
-app: main.c
-	$(CC) $(CFLAGS) main.c $(LIBS) -o app
+build/app: main.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) main.c $(LIBS) -o build/app
 
-run: app
-	./app
+run: build/app
+	./build/app
 
 clean:
-	rm -f app
+	rm -rf build
 
 .PHONY: run clean
 ```
 
-### 4. Build and Run
+Run the server:
 
 ```bash
 make run
 ```
 
-Open `http://localhost:3000`.
+Access at `http://localhost:3000`.
 
-## Static Site Generation (SSG)
+## Architecture & Features
 
-Mizar can also pre-render static HTML pages to disk:
+### 1. Declarative View DSL
+Macros map to scoped C loops that push active buffers into thread-local storage, allowing HTML, SVG, and MathML generation with compile-time checked attributes:
+
+```c
+Div(.id = "container", .cls = "flex") {
+    Svg(.width = "24", .height = "24", .viewBox = "0 0 24 24") {
+        Svg_Circle_(.cx = "12", .cy = "12", .r = "10", .fill = "#2563eb");
+    }
+}
+```
+
+### 2. HTMX 4 Support
+Mizar defines attributes for HTMX 4 specifications, including status matching (`hx-status:200`), explicit inheritance (`:inherited`), and append modifiers:
+
+```c
+Button(HxPost("/api/items"), HxTarget("#list"), HxSwap("beforeend")) {
+    Text("Add Item");
+}
+```
+
+### 3. UI Component Helpers
+Pre-configured layouts and widgets in `src/ui/components/`:
+- **Widgets:** Buttons, Badges, Cards, Alerts, Modals, Forms, Breadcrumbs, Tabs, Dropdowns.
+- **SVG Icons:** 28 inline SVG helpers in `src/ui/icons.h` (`mz_icon_search()`, `mz_icon_user()`, `mz_icon_trash()`, etc.).
+
+### 4. Middleware Pipeline
+Middlewares follow `bool (*)(const MzRequest *req, MzResponse *res, void *user_data)`. Returning `false` stops execution:
+- `mz_middleware_security_headers`: Sets HSTS, X-Content-Type-Options, X-Frame-Options, and Referrer-Policy.
+- `mz_middleware_logger`: Writes method, route, response status, and duration to stderr.
+- `mz_middleware_cors`: Configures CORS headers and handles preflight OPTIONS.
+
+### 5. Session Management & Flash Messages
+- `MzSessionStore`: Thread-safe in-memory session store indexed by token cookies with configurable TTL.
+- Flash messages: One-time messages stored across HTTP redirects (`mz_flash_set(...)` / `MzFlashContainer()`).
+
+### 6. BearSSL TLS
+Compile with `TLS=1` to link BearSSL for HTTPS support:
+
+```c
+mz_app_listen_tls(&app, 8443, "cert.pem", "key.pem");
+```
+
+### 7. Static Site Generation (SSG)
+Pre-render static sites to disk with layout composition and static asset syncing:
 
 ```c
 #include <mizar.h>
@@ -149,12 +192,22 @@ static void render_home(MizarBuffer *buf, void *user_data) {
 int main(void) {
     MizarSite site;
     mz_site_init(&site, "dist");
-    mz_site_set_static_dir(&site, "static"); // Copies assets to dist/
+    mz_site_set_static_dir(&site, "static");
 
     mz_site_add_page(&site, "/", render_home, nullptr);
-
     mz_site_build(&site);
     mz_site_free(&site);
     return 0;
 }
 ```
+
+## Documentation
+
+To build and view the full documentation site locally:
+
+```bash
+make doc-build
+make doc-serve
+```
+
+Browse `http://localhost:3000`.

@@ -17,6 +17,7 @@
 #include "view/equation.h"
 #include "view/component.h"
 #include "view/css/rules.h"
+#include "view/js/dsl.h"
 #include "ui/geometry.h"
 #include "ui/icons.h"
 #include "ui/components.h"
