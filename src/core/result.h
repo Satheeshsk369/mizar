@@ -50,8 +50,18 @@ typedef struct {
 
 typedef struct {
     bool ok;
+    uint64_t val;
+} MzUintResult;
+
+typedef struct {
+    bool ok;
     double val;
 } MzFloatResult;
+
+typedef struct {
+    bool ok;
+    bool val;
+} MzBoolResult;
 
 typedef struct {
     bool ok;

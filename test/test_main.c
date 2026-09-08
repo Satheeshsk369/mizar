@@ -172,6 +172,35 @@ int main(void) {
         MzFloatResult fl_res = mz_req_query_float(&req, "ratio");
         assert(fl_res.ok);
         assert(fl_res.val > 3.14 && fl_res.val < 3.15);
+
+        // 10. Test Comprehensive Extended Types (bool, uint, bounded, multi-values)
+        req.queries[1].key = "active";
+        req.queries[1].value = "true";
+        req.queries[2].key = "limit";
+        req.queries[2].value = "5000";
+        req.queries[3].key = "tag";
+        req.queries[3].value = "c23";
+        req.queries[4].key = "tag";
+        req.queries[4].value = "web";
+        req.query_count = 5;
+
+        MzBoolResult b_res = mz_req_query_bool(&req, "active");
+        assert(b_res.ok);
+        assert(b_res.val == true);
+
+        // Bounded integer clamp (default 20, min 1, max 100)
+        int64_t clamped_limit = mz_req_query_int_bounded(&req, "limit", 20, 1, 100);
+        assert(clamped_limit == 100);
+
+        int64_t missing_default = mz_req_query_int_or(&req, "page", 1);
+        assert(missing_default == 1);
+
+        // Multi-value query extraction
+        const char *tags[4];
+        size_t tag_cnt = mz_req_query_all(&req, "tag", tags, 4);
+        assert(tag_cnt == 2);
+        assert(strcmp(tags[0], "c23") == 0);
+        assert(strcmp(tags[1], "web") == 0);
     }
 
     return 0;

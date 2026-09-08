@@ -61,9 +61,32 @@ const char *mz_req_cookie(const MzRequest *req, const char *key);
 
 // Type-safe, validated request parsers (returning explicit tagged results)
 MzIntResult mz_req_param_int(const MzRequest *req, const char *key);
+MzUintResult mz_req_param_uint(const MzRequest *req, const char *key);
 MzIntResult mz_req_query_int(const MzRequest *req, const char *key);
+MzUintResult mz_req_query_uint(const MzRequest *req, const char *key);
 MzFloatResult mz_req_query_float(const MzRequest *req, const char *key);
+MzBoolResult mz_req_query_bool(const MzRequest *req, const char *key);
 MzSliceResult mz_req_query_slice(const MzRequest *req, const char *key);
+
+// Form / POST body parsers
+MzIntResult mz_req_form_int(const MzRequest *req, const char *key);
+MzUintResult mz_req_form_uint(const MzRequest *req, const char *key);
+MzFloatResult mz_req_form_float(const MzRequest *req, const char *key);
+MzBoolResult mz_req_form_bool(const MzRequest *req, const char *key);
+MzSliceResult mz_req_form_slice(const MzRequest *req, const char *key);
+
+// Defaulting & bounded/clamped helpers (never fail, return safe bounded defaults)
+int64_t mz_req_query_int_or(const MzRequest *req, const char *key, int64_t default_val);
+int64_t mz_req_query_int_bounded(const MzRequest *req, const char *key, int64_t default_val, int64_t min_val, int64_t max_val);
+bool mz_req_query_bool_or(const MzRequest *req, const char *key, bool default_val);
+
+int64_t mz_req_form_int_or(const MzRequest *req, const char *key, int64_t default_val);
+int64_t mz_req_form_int_bounded(const MzRequest *req, const char *key, int64_t default_val, int64_t min_val, int64_t max_val);
+bool mz_req_form_bool_or(const MzRequest *req, const char *key, bool default_val);
+
+// Multi-value query and form extractions (checkboxes, tags, arrays)
+size_t mz_req_query_all(const MzRequest *req, const char *key, const char *out[], size_t max_items);
+size_t mz_req_form_all(const MzRequest *req, const char *key, const char *out[], size_t max_items);
 
 typedef struct {
     const char *path;

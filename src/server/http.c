@@ -64,8 +64,7 @@ const char *mz_req_form(const MzRequest *req, const char *key) {
     return nullptr;
 }
 
-MzIntResult mz_req_param_int(const MzRequest *req, const char *key) {
-    const char *raw = mz_req_param(req, key);
+static MzIntResult parse_int_str(const char *raw) {
     if (!raw || !*raw) return (MzIntResult){ .ok = false, .val = 0 };
     char *end = nullptr;
     errno = 0;
@@ -76,20 +75,20 @@ MzIntResult mz_req_param_int(const MzRequest *req, const char *key) {
     return (MzIntResult){ .ok = true, .val = v };
 }
 
-MzIntResult mz_req_query_int(const MzRequest *req, const char *key) {
-    const char *raw = mz_req_query(req, key);
-    if (!raw || !*raw) return (MzIntResult){ .ok = false, .val = 0 };
+static MzUintResult parse_uint_str(const char *raw) {
+    if (!raw || !*raw) return (MzUintResult){ .ok = false, .val = 0 };
+    while (*raw == ' ') raw++;
+    if (*raw == '-') return (MzUintResult){ .ok = false, .val = 0 };
     char *end = nullptr;
     errno = 0;
-    int64_t v = strtoll(raw, &end, 10);
+    uint64_t v = strtoull(raw, &end, 10);
     if (errno != 0 || end == raw || *end != '\0') {
-        return (MzIntResult){ .ok = false, .val = 0 };
+        return (MzUintResult){ .ok = false, .val = 0 };
     }
-    return (MzIntResult){ .ok = true, .val = v };
+    return (MzUintResult){ .ok = true, .val = v };
 }
 
-MzFloatResult mz_req_query_float(const MzRequest *req, const char *key) {
-    const char *raw = mz_req_query(req, key);
+static MzFloatResult parse_float_str(const char *raw) {
     if (!raw || !*raw) return (MzFloatResult){ .ok = false, .val = 0.0 };
     char *end = nullptr;
     errno = 0;
@@ -100,10 +99,131 @@ MzFloatResult mz_req_query_float(const MzRequest *req, const char *key) {
     return (MzFloatResult){ .ok = true, .val = v };
 }
 
+static MzBoolResult parse_bool_str(const char *raw) {
+    if (!raw || !*raw) return (MzBoolResult){ .ok = false, .val = false };
+    if (mz_strcasecmp(raw, "true") == 0 ||
+        mz_strcasecmp(raw, "1") == 0 ||
+        mz_strcasecmp(raw, "on") == 0 ||
+        mz_strcasecmp(raw, "yes") == 0) {
+        return (MzBoolResult){ .ok = true, .val = true };
+    }
+    if (mz_strcasecmp(raw, "false") == 0 ||
+        mz_strcasecmp(raw, "0") == 0 ||
+        mz_strcasecmp(raw, "off") == 0 ||
+        mz_strcasecmp(raw, "no") == 0) {
+        return (MzBoolResult){ .ok = true, .val = false };
+    }
+    return (MzBoolResult){ .ok = false, .val = false };
+}
+
+MzIntResult mz_req_param_int(const MzRequest *req, const char *key) {
+    return parse_int_str(mz_req_param(req, key));
+}
+
+MzUintResult mz_req_param_uint(const MzRequest *req, const char *key) {
+    return parse_uint_str(mz_req_param(req, key));
+}
+
+MzIntResult mz_req_query_int(const MzRequest *req, const char *key) {
+    return parse_int_str(mz_req_query(req, key));
+}
+
+MzUintResult mz_req_query_uint(const MzRequest *req, const char *key) {
+    return parse_uint_str(mz_req_query(req, key));
+}
+
+MzFloatResult mz_req_query_float(const MzRequest *req, const char *key) {
+    return parse_float_str(mz_req_query(req, key));
+}
+
+MzBoolResult mz_req_query_bool(const MzRequest *req, const char *key) {
+    return parse_bool_str(mz_req_query(req, key));
+}
+
 MzSliceResult mz_req_query_slice(const MzRequest *req, const char *key) {
     const char *raw = mz_req_query(req, key);
     if (!raw) return (MzSliceResult){ .ok = false, .val = MZ_SLICE_NULL };
     return (MzSliceResult){ .ok = true, .val = mz_slice_from_cstr(raw) };
+}
+
+MzIntResult mz_req_form_int(const MzRequest *req, const char *key) {
+    return parse_int_str(mz_req_form(req, key));
+}
+
+MzUintResult mz_req_form_uint(const MzRequest *req, const char *key) {
+    return parse_uint_str(mz_req_form(req, key));
+}
+
+MzFloatResult mz_req_form_float(const MzRequest *req, const char *key) {
+    return parse_float_str(mz_req_form(req, key));
+}
+
+MzBoolResult mz_req_form_bool(const MzRequest *req, const char *key) {
+    return parse_bool_str(mz_req_form(req, key));
+}
+
+MzSliceResult mz_req_form_slice(const MzRequest *req, const char *key) {
+    const char *raw = mz_req_form(req, key);
+    if (!raw) return (MzSliceResult){ .ok = false, .val = MZ_SLICE_NULL };
+    return (MzSliceResult){ .ok = true, .val = mz_slice_from_cstr(raw) };
+}
+
+int64_t mz_req_query_int_or(const MzRequest *req, const char *key, int64_t default_val) {
+    MzIntResult r = mz_req_query_int(req, key);
+    return r.ok ? r.val : default_val;
+}
+
+int64_t mz_req_query_int_bounded(const MzRequest *req, const char *key, int64_t default_val, int64_t min_val, int64_t max_val) {
+    MzIntResult r = mz_req_query_int(req, key);
+    int64_t v = r.ok ? r.val : default_val;
+    if (v < min_val) v = min_val;
+    if (v > max_val) v = max_val;
+    return v;
+}
+
+bool mz_req_query_bool_or(const MzRequest *req, const char *key, bool default_val) {
+    MzBoolResult r = mz_req_query_bool(req, key);
+    return r.ok ? r.val : default_val;
+}
+
+int64_t mz_req_form_int_or(const MzRequest *req, const char *key, int64_t default_val) {
+    MzIntResult r = mz_req_form_int(req, key);
+    return r.ok ? r.val : default_val;
+}
+
+int64_t mz_req_form_int_bounded(const MzRequest *req, const char *key, int64_t default_val, int64_t min_val, int64_t max_val) {
+    MzIntResult r = mz_req_form_int(req, key);
+    int64_t v = r.ok ? r.val : default_val;
+    if (v < min_val) v = min_val;
+    if (v > max_val) v = max_val;
+    return v;
+}
+
+bool mz_req_form_bool_or(const MzRequest *req, const char *key, bool default_val) {
+    MzBoolResult r = mz_req_form_bool(req, key);
+    return r.ok ? r.val : default_val;
+}
+
+size_t mz_req_query_all(const MzRequest *req, const char *key, const char *out[], size_t max_items) {
+    if (!req || !key || !out || max_items == 0) return 0;
+    size_t count = 0;
+    for (size_t i = 0; i < req->query_count && count < max_items; i++) {
+        if (strcmp(req->queries[i].key, key) == 0) {
+            out[count++] = req->queries[i].value;
+        }
+    }
+    return count;
+}
+
+size_t mz_req_form_all(const MzRequest *req, const char *key, const char *out[], size_t max_items) {
+    if (!req || !key || !out || max_items == 0) return 0;
+    size_t count = 0;
+    for (size_t i = 0; i < req->form_count && count < max_items; i++) {
+        if (strcmp(req->forms[i].key, key) == 0) {
+            out[count++] = req->forms[i].value;
+        }
+    }
+    return count;
 }
 
 const char *mz_req_cookie(const MzRequest *req, const char *key) {
