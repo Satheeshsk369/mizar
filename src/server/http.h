@@ -2,6 +2,7 @@
 #define MIZAR_SERVER_HTTP_H
 
 #include "core/buffer.h"
+#include "core/result.h"
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -57,6 +58,12 @@ const char *mz_req_param(const MzRequest *req, const char *key);
 const char *mz_req_query(const MzRequest *req, const char *key);
 const char *mz_req_form(const MzRequest *req, const char *key);
 const char *mz_req_cookie(const MzRequest *req, const char *key);
+
+// Type-safe, validated request parsers (returning explicit tagged results)
+MzIntResult mz_req_param_int(const MzRequest *req, const char *key);
+MzIntResult mz_req_query_int(const MzRequest *req, const char *key);
+MzFloatResult mz_req_query_float(const MzRequest *req, const char *key);
+MzSliceResult mz_req_query_slice(const MzRequest *req, const char *key);
 
 typedef struct {
     const char *path;

@@ -3,9 +3,18 @@
 
 #include "core/buffer.h"
 #include "view/html/attrs.h"
+#include "core/result.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+
+static inline void mz_tag_close(const char *tag);
+
+static inline void mz_auto_close_tag(const char **tag_ptr) {
+    if (tag_ptr && *tag_ptr) {
+        mz_tag_close(*tag_ptr);
+    }
+}
 
 static inline void mz_tag_open(const char *tag, Attrs attrs) {
     MizarBuffer *buf = mz_context_get();
@@ -45,6 +54,9 @@ static inline void mz_void_tag(const char *tag, Attrs attrs) {
          !_mz_doc; \
          _mz_doc = 1, mz_tag_close("html"), mz_context_pop())
 
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((format(printf, 1, 2)))
+#endif
 static inline void Text(const char *fmt, ...) {
     MizarBuffer *buf = mz_context_get();
     if (!buf || !fmt) return;

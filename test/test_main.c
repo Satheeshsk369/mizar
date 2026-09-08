@@ -145,5 +145,34 @@ int main(void) {
     assert(strstr(mbuf.data, "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mi>y</mi></math>") != NULL);
     mz_buf_free(&mbuf);
 
+    // 9. Test Type-Safe Result Types and Slices
+    {
+        MzSlice s = MZ_SLICE_LIT("application/json");
+        assert(mz_slice_eq(s, "application/json"));
+        assert(!mz_slice_eq(s, "text/html"));
+        assert(s.len == 16);
+
+        MzRequest req;
+        memset(&req, 0, sizeof(req));
+        req.params[0].key = "id";
+        req.params[0].value = "42";
+        req.param_count = 1;
+
+        req.queries[0].key = "ratio";
+        req.queries[0].value = "3.14159";
+        req.query_count = 1;
+
+        MzIntResult id_res = mz_req_param_int(&req, "id");
+        assert(id_res.ok);
+        assert(id_res.val == 42);
+
+        MzIntResult bad_id = mz_req_param_int(&req, "missing");
+        assert(!bad_id.ok);
+
+        MzFloatResult fl_res = mz_req_query_float(&req, "ratio");
+        assert(fl_res.ok);
+        assert(fl_res.val > 3.14 && fl_res.val < 3.15);
+    }
+
     return 0;
 }

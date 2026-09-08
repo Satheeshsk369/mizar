@@ -322,7 +322,8 @@ static void content_htmx(void) {
     H2() { Text("Full Document Example vs Fragment Example"); }
     Pre() {
         Code() {
-            Text("// 1. Full Page Handler (Initial visit to /)\n"
+            Text("%s",
+                 "// 1. Full Page Handler (Initial visit to /)\n"
                  "static void handle_page(const MzRequest *req, MzResponse *res, void *udata) {\n"
                  "    mz_res_html(res);\n"
                  "    MzPage(&res->body, .title = \"Hypermedia App\") {\n"

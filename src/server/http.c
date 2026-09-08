@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
 
 static char *mz_strndup(const char *s, size_t n) {
     char *p = (char *)malloc(n + 1);
@@ -61,6 +62,48 @@ const char *mz_req_form(const MzRequest *req, const char *key) {
         }
     }
     return nullptr;
+}
+
+MzIntResult mz_req_param_int(const MzRequest *req, const char *key) {
+    const char *raw = mz_req_param(req, key);
+    if (!raw || !*raw) return (MzIntResult){ .ok = false, .val = 0 };
+    char *end = nullptr;
+    errno = 0;
+    int64_t v = strtoll(raw, &end, 10);
+    if (errno != 0 || end == raw || *end != '\0') {
+        return (MzIntResult){ .ok = false, .val = 0 };
+    }
+    return (MzIntResult){ .ok = true, .val = v };
+}
+
+MzIntResult mz_req_query_int(const MzRequest *req, const char *key) {
+    const char *raw = mz_req_query(req, key);
+    if (!raw || !*raw) return (MzIntResult){ .ok = false, .val = 0 };
+    char *end = nullptr;
+    errno = 0;
+    int64_t v = strtoll(raw, &end, 10);
+    if (errno != 0 || end == raw || *end != '\0') {
+        return (MzIntResult){ .ok = false, .val = 0 };
+    }
+    return (MzIntResult){ .ok = true, .val = v };
+}
+
+MzFloatResult mz_req_query_float(const MzRequest *req, const char *key) {
+    const char *raw = mz_req_query(req, key);
+    if (!raw || !*raw) return (MzFloatResult){ .ok = false, .val = 0.0 };
+    char *end = nullptr;
+    errno = 0;
+    double v = strtod(raw, &end);
+    if (errno != 0 || end == raw || *end != '\0') {
+        return (MzFloatResult){ .ok = false, .val = 0.0 };
+    }
+    return (MzFloatResult){ .ok = true, .val = v };
+}
+
+MzSliceResult mz_req_query_slice(const MzRequest *req, const char *key) {
+    const char *raw = mz_req_query(req, key);
+    if (!raw) return (MzSliceResult){ .ok = false, .val = MZ_SLICE_NULL };
+    return (MzSliceResult){ .ok = true, .val = mz_slice_from_cstr(raw) };
 }
 
 const char *mz_req_cookie(const MzRequest *req, const char *key) {
