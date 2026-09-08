@@ -189,7 +189,67 @@ int main(void) {
     }
 
     mz_app_free(&app);
-    // 6. HTMX 4 request inspection and response modifiers
+    // 7. Signed Sessions & Flash Messages
+    {
+        const char *secret = "super-secret-key-123";
+
+        // Create session
+        MzSession sess;
+        memset(&sess, 0, sizeof(sess));
+        mz_session_set(&sess, "user_id", "42");
+        mz_session_set(&sess, "role", "admin");
+
+        MzResponse res;
+        mz_res_init(&res);
+        mz_session_write(&res, &sess, secret, (MzCookieOpts){ .max_age = 3600 });
+        mz_res_flash(&res, "Welcome back, Admin!", MZ_FLASH_SUCCESS);
+
+        MizarBuffer out;
+        mz_buf_init(&out, 1024);
+        mz_res_serialize(&res, &out);
+
+        assert(strstr(out.data, "Set-Cookie: mz_session=") != NULL);
+        assert(strstr(out.data, "HX-Trigger: {\"mzFlash\": {\"message\": \"Welcome back, Admin!\", \"type\": \"success\"}}") != NULL);
+
+        // Find generated cookie value from out.data
+        const char *cookie_start = strstr(out.data, "Set-Cookie: mz_session=");
+        assert(cookie_start != NULL);
+        cookie_start += strlen("Set-Cookie: mz_session=");
+        const char *cookie_end = strchr(cookie_start, ';');
+        char cookie_val[256];
+        size_t c_len = (size_t)(cookie_end - cookie_start);
+        memcpy(cookie_val, cookie_start, c_len);
+        cookie_val[c_len] = '\0';
+
+        char dyn_req[512];
+        snprintf(dyn_req, sizeof(dyn_req),
+                 "GET /dashboard HTTP/1.1\r\n"
+                 "Host: localhost\r\n"
+                 "Cookie: mz_session=%s\r\n\r\n", cookie_val);
+
+        MzRequest req2;
+        assert(mz_http_parse_request(dyn_req, strlen(dyn_req), &req2));
+        MzSession read_sess;
+        assert(mz_session_read(&req2, secret, &read_sess));
+        assert(strcmp(mz_session_get(&read_sess, "user_id"), "42") == 0);
+        assert(strcmp(mz_session_get(&read_sess, "role"), "admin") == 0);
+
+        // Test tampering rejection
+        char tampered_req[512];
+        snprintf(tampered_req, sizeof(tampered_req),
+                 "GET /dashboard HTTP/1.1\r\n"
+                 "Host: localhost\r\n"
+                 "Cookie: mz_session=user_id=99&role=admin.%s\r\n\r\n", strrchr(cookie_val, '.') + 1);
+        MzRequest req_tampered;
+        assert(mz_http_parse_request(tampered_req, strlen(tampered_req), &req_tampered));
+        MzSession tampered_sess;
+        assert(!mz_session_read(&req_tampered, secret, &tampered_sess));
+
+        mz_req_free(&req2);
+        mz_req_free(&req_tampered);
+        mz_buf_free(&out);
+        mz_res_free(&res);
+    }
     {
         const char *raw =
             "GET /htmx4-test HTTP/1.1\r\n"

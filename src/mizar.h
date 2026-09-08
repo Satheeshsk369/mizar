@@ -6,6 +6,7 @@
 #include "core/json.h"
 #include "core/livereload.h"
 #include "core/htmx.h"
+#include "core/patterns.h"
 #include "view/html/attrs.h"
 #include "view/html/tags.h"
 #include "view/svg/attrs.h"
@@ -22,6 +23,8 @@
 #include "ssg/site.h"
 #include "ssg/components.h"
 #include "server/http.h"
+#include "server/session.h"
+#include "server/flash.h"
 #include "server/app.h"
 
 // HTMX Convenience macros for HTML Attrs (HTMX 4 & HTMX 2 Compatible)

@@ -101,6 +101,34 @@ int main(void) {
         assert(strstr(abuf.data, "hx-disable=\"this\"") != NULL);
         mz_buf_free(&abuf);
     }
+    // 8. Test High-Level Hypermedia Patterns (MzPage, MzSearch, MzClickToEdit, MzLoadMore, MzPoll)
+    {
+        MizarBuffer pbuf;
+        mz_buf_init(&pbuf, 2048);
+
+        MzPage(&pbuf, .title = "Test Page", .theme_color = "#0284c7") {
+            MzSearch(.url = "/api/search", .target = "#results", .placeholder = "Type here...");
+            MzClickToEdit(.url = "/users/1/edit", .label = "Email", .value = "user@example.com");
+            MzLoadMore(.url = "/posts?page=2", .target = "#posts", .trigger = MZ_LOAD_REVEALED);
+            MzPoll(.url = "/api/status", .interval_sec = 5) {
+                Text("System Online");
+            }
+        }
+
+        assert(strstr(pbuf.data, "<title>Test Page</title>") != NULL);
+        assert(strstr(pbuf.data, "theme-color\" content=\"#0284c7\"") != NULL);
+        assert(strstr(pbuf.data, "<script src=\"https://unpkg.com/htmx.org@4.0.0\"></script>") != NULL);
+        assert(strstr(pbuf.data, "hx-get=\"/api/search\"") != NULL);
+        assert(strstr(pbuf.data, "input changed delay:300ms") != NULL);
+        assert(strstr(pbuf.data, "user@example.com") != NULL);
+        assert(strstr(pbuf.data, "hx-get=\"/users/1/edit\"") != NULL);
+        assert(strstr(pbuf.data, "hx-trigger=\"revealed\"") != NULL);
+        assert(strstr(pbuf.data, "hx-trigger=\"every 5s\"") != NULL);
+        assert(strstr(pbuf.data, "System Online") != NULL);
+
+        mz_buf_free(&pbuf);
+    }
+
     // Standalone SVG & MathML documents
     MizarBuffer sbuf, mbuf;
     mz_buf_init(&sbuf, 256);
