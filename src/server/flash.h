@@ -3,6 +3,7 @@
 
 #include "server/http.h"
 #include "view/html/tags.h"
+#include "view/js/dsl.h"
 #include <stdio.h>
 
 typedef enum {
@@ -38,33 +39,29 @@ static inline void MzFlashContainer(void) {
         .style = "position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none;"
     ) {}
 
-    // Embedded vanilla micro-script (no dependencies) to display and auto-dismiss the toast
+    // Embedded vanilla micro-script to display and auto-dismiss the toast
     Script() {
-        Raw(
-            "document.addEventListener('mzFlash', function(e) {\n"
-            "  var data = e.detail;\n"
-            "  if (!data) return;\n"
-            "  var c = document.getElementById('mz-flash-container');\n"
-            "  if (!c) return;\n"
-            "  var toast = document.createElement('div');\n"
-            "  var bg = '#0284c7';\n"
-            "  if (data.type === 'success') bg = '#16a34a';\n"
-            "  if (data.type === 'warning') bg = '#eab308';\n"
-            "  if (data.type === 'error') bg = '#dc2626';\n"
-            "  toast.style.cssText = 'background:' + bg + '; color:white; padding:12px 18px; border-radius:8px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); font-size:0.875rem; font-weight:500; opacity:0; transition:opacity 0.25s, transform 0.25s; transform:translateY(-10px); pointer-events:auto; cursor:pointer;';\n"
-            "  toast.textContent = data.message;\n"
-            "  toast.onclick = function() { toast.remove(); };\n"
-            "  c.appendChild(toast);\n"
-            "  requestAnimationFrame(function() {\n"
-            "    toast.style.opacity = '1';\n"
-            "    toast.style.transform = 'translateY(0)';\n"
-            "  });\n"
-            "  setTimeout(function() {\n"
-            "    toast.style.opacity = '0';\n"
-            "    setTimeout(function() { toast.remove(); }, 300);\n"
-            "  }, 4000);\n"
-            "});\n"
-        );
+        JsOn("document", "mzFlash") {
+            JsConst("data", "e.detail");
+            JsIf("!data") { Js("return;"); }
+            JsConst("c", "document.getElementById('mz-flash-container')");
+            JsIf("!c") { Js("return;"); }
+            JsConst("toast", "document.createElement('div')");
+            JsLet("bg", "'#0284c7'");
+            JsIf("data.type === 'success'") { JsAssign("bg", "'#16a34a'"); }
+            JsIf("data.type === 'warning'") { JsAssign("bg", "'#eab308'"); }
+            JsIf("data.type === 'error'") { JsAssign("bg", "'#dc2626'"); }
+            JsAssign("toast.style.cssText",
+                     "'background:' + bg + '; color:white; padding:12px 18px; border-radius:8px; "
+                     "box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); font-size:0.875rem; font-weight:500; "
+                     "opacity:0; transition:opacity 0.25s, transform 0.25s; transform:translateY(-10px); "
+                     "pointer-events:auto; cursor:pointer;'");
+            JsAssign("toast.textContent", "data.message");
+            JsAssign("toast.onclick", "() => toast.remove()");
+            JsCall("c.appendChild(toast)");
+            JsCall("requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; })");
+            JsCall("setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000)");
+        }
     }
 }
 

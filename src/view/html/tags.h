@@ -91,12 +91,6 @@ static inline void Text(const char *fmt, ...) {
     va_end(args);
 }
 
-static inline void Raw(const char *raw_html) {
-    MizarBuffer *buf = mz_context_get();
-    if (!buf || !raw_html) return;
-    mz_buf_append_str(buf, raw_html);
-}
-
 static inline void Comment(const char *fmt, ...) {
     MizarBuffer *buf = mz_context_get();
     if (!buf || !fmt) return;

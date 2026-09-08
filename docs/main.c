@@ -184,16 +184,14 @@ static void content_html_svg(void) {
     H2() { Text("Text Formatting & Automatic HTML Escaping"); }
     P() {
         Text("To prevent Cross-Site Scripting (XSS), Text() automatically escapes HTML entities (<, >, &, \", ') "
-             "unless you explicitly use Raw():");
+             "via the DFA UTF-8 engine, ensuring valid code points and complete XSS protection:");
     }
 
     Pre() {
         Code() {
             Text("%s",
                  "// Safely escaped: converts '<script>' to '&lt;script&gt;'\n"
-                 "Text(\"User input: %s\", user_provided_string);\n\n"
-                 "// Raw unescaped HTML (use with caution):\n"
-                 "Raw(\"<span class=\\\"custom\\\">trusted markup</span>\");\n");
+                 "Text(\"User input: %s\", user_provided_string);\n");
         }
     }
 
