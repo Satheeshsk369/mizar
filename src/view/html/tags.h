@@ -73,11 +73,18 @@ static inline void Text(const char *fmt, ...) {
         if ((size_t)needed < sizeof(stack_buf)) {
             mz_buf_append_escaped(buf, stack_buf, (size_t)needed);
         } else {
-            char *dyn = (char *)malloc((size_t)needed + 1);
-            if (dyn) {
-                vsnprintf(dyn, (size_t)needed + 1, fmt, args);
-                mz_buf_append_escaped(buf, dyn, (size_t)needed);
-                free(dyn);
+            // Re-use active buffer to format dynamic text without heap malloc/free churn
+            size_t old_len = buf->len;
+            mz_buf_vprintf(buf, fmt, args);
+            size_t formatted_len = buf->len - old_len;
+            char *temp = (char *)malloc(formatted_len + 1);
+            if (temp) {
+                memcpy(temp, buf->data + old_len, formatted_len);
+                temp[formatted_len] = '\0';
+                buf->len = old_len;
+                buf->data[old_len] = '\0';
+                mz_buf_append_escaped(buf, temp, formatted_len);
+                free(temp);
             }
         }
     }

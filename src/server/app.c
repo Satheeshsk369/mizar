@@ -131,12 +131,6 @@ void mz_app_set_workers(MzApp *app, int num_threads) {
 void mz_app_free(MzApp *app) {
     if (!app) return;
 
-    for (size_t i = 0; i < app->route_count; i++) {
-        free(app->routes[i].method);
-        free(app->routes[i].pattern);
-    }
-    free(app->routes);
-
     if (app->radix_tree) {
         mz_radix_node_free((MzRadixNode *)app->radix_tree);
         app->radix_tree = nullptr;
@@ -180,20 +174,6 @@ void mz_app_static(MzApp *app, const char *url_prefix, const char *dir_path) {
 void mz_app_route_impl(MzApp *app, const char *method, const char *pattern, MzHandlerFn handler, void *user_data) {
     if (!app || !method || !pattern || !handler) return;
 
-    if (app->route_count >= app->route_capacity) {
-        size_t new_cap = app->route_capacity ? app->route_capacity * 2 : 16;
-        MzRouteEntry *new_routes = (MzRouteEntry *)realloc(app->routes, new_cap * sizeof(MzRouteEntry));
-        if (!new_routes) return;
-        app->routes = new_routes;
-        app->route_capacity = new_cap;
-    }
-
-    app->routes[app->route_count].method = strdup(method);
-    app->routes[app->route_count].pattern = strdup(pattern);
-    app->routes[app->route_count].handler = handler;
-    app->routes[app->route_count].user_data = user_data;
-    app->route_count++;
-
     if (!app->radix_tree) {
         app->radix_tree = mz_radix_node_create("", MZ_NODE_STATIC, nullptr);
     }
@@ -218,50 +198,6 @@ void mz_app_delete_impl(MzApp *app, const char *pattern, MzHandlerFn handler, vo
 
 void mz_app_patch_impl(MzApp *app, const char *pattern, MzHandlerFn handler, void *user_data) {
     mz_app_route_impl(app, "PATCH", pattern, handler, user_data);
-}
-
-static bool mz_match_path(const char *pattern, const char *path, MzRequest *req) {
-    const char *pat = pattern;
-    const char *p = path;
-
-    for (size_t i = 0; i < req->param_count; i++) {
-        free(req->params[i].key);
-        free(req->params[i].value);
-    }
-    req->param_count = 0;
-
-    while (*pat && *p) {
-        if (*pat == ':') {
-            pat++;
-            const char *key_start = pat;
-            while (*pat && *pat != '/') pat++;
-            size_t key_len = pat - key_start;
-
-            const char *val_start = p;
-            while (*p && *p != '/') p++;
-            size_t val_len = p - val_start;
-
-            if (req->param_count < MZ_HTTP_MAX_PARAMS) {
-                char *k = (char *)malloc(key_len + 1);
-                char *v = (char *)malloc(val_len + 1);
-                memcpy(k, key_start, key_len);
-                k[key_len] = '\0';
-                memcpy(v, val_start, val_len);
-                v[val_len] = '\0';
-
-                req->params[req->param_count].key = k;
-                req->params[req->param_count].value = v;
-                req->param_count++;
-            }
-        } else if (*pat == *p) {
-            pat++;
-            p++;
-        } else {
-            return false;
-        }
-    }
-
-    return (*pat == '\0' && *p == '\0');
 }
 
 static const char *mz_mime_type_for_file(const char *path) {
@@ -392,20 +328,6 @@ void mz_app_handle(MzApp *app, MzRequest *req, MzResponse *res) {
             matched_handler(req, res, matched_udata);
             mz_context_restore_depth(saved_context_depth);
             return;
-        }
-    } else {
-        // Fallback linear route matching
-        for (size_t i = 0; i < app->route_count; i++) {
-            MzRouteEntry *r = &app->routes[i];
-            if (strcmp(r->method, "*") != 0 && strcmp(r->method, req->method) != 0) {
-                continue;
-            }
-
-            if (mz_match_path(r->pattern, req->path, req)) {
-                r->handler(req, res, r->user_data);
-                mz_context_restore_depth(saved_context_depth);
-                return;
-            }
         }
     }
 

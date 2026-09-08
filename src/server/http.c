@@ -1,18 +1,11 @@
 #include "server/http.h"
-#include "core/url.h"
+#include "algo/urlcodec.h"
+#include "algo/strview.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
-
-static char *mz_strndup(const char *s, size_t n) {
-    char *p = (char *)malloc(n + 1);
-    if (!p) return nullptr;
-    memcpy(p, s, n);
-    p[n] = '\0';
-    return p;
-}
 
 static int mz_strcasecmp(const char *s1, const char *s2) {
     while (*s1 && *s2) {
@@ -417,34 +410,15 @@ static void mz_parse_kv_string(MzArena *arena, const char *qs, MzParam *arr, siz
         if (!amp) amp = p + strlen(p);
 
         if (eq && eq < amp) {
-            char *raw_k = mz_strndup(p, eq - p);
-            char *raw_v = mz_strndup(eq + 1, amp - (eq + 1));
-            char *dec_k = mz_url_decode(raw_k, strlen(raw_k), true);
-            char *dec_v = mz_url_decode(raw_v, strlen(raw_v), true);
-            if (arena) {
-                arr[*count].key = mz_arena_strdup(arena, dec_k);
-                arr[*count].value = mz_arena_strdup(arena, dec_v);
-                free(dec_k);
-                free(dec_v);
-            } else {
-                arr[*count].key = dec_k;
-                arr[*count].value = dec_v;
-            }
-            free(raw_k);
-            free(raw_v);
+            size_t k_len = (size_t)(eq - p);
+            size_t v_len = (size_t)(amp - (eq + 1));
+            arr[*count].key = mz_urlcodec_decode(p, k_len, true, arena);
+            arr[*count].value = mz_urlcodec_decode(eq + 1, v_len, true, arena);
             (*count)++;
         } else {
-            char *raw_k = mz_strndup(p, amp - p);
-            char *dec_k = mz_url_decode(raw_k, strlen(raw_k), true);
-            if (arena) {
-                arr[*count].key = mz_arena_strdup(arena, dec_k);
-                arr[*count].value = mz_arena_strdup(arena, "");
-                free(dec_k);
-            } else {
-                arr[*count].key = dec_k;
-                arr[*count].value = strdup("");
-            }
-            free(raw_k);
+            size_t k_len = (size_t)(amp - p);
+            arr[*count].key = mz_urlcodec_decode(p, k_len, true, arena);
+            arr[*count].value = arena ? mz_arena_strdup(arena, "") : strdup("");
             (*count)++;
         }
 

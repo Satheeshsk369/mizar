@@ -2,6 +2,8 @@
 #define MIZAR_SSG_SITE_H
 
 #include "core/buffer.h"
+#include "algo/arena.h"
+#include "algo/vec.h"
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -16,9 +18,8 @@ typedef struct {
 typedef struct {
     char *out_dir;
     char *static_dir;
-    MizarRoute *routes;
-    size_t route_count;
-    size_t route_capacity;
+    MzArena arena;      // Memory pool for routes & paths
+    MzVec route_vec;    // Dynamic vector of MizarRoute*
 } MizarSite;
 
 // Site lifecycle

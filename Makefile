@@ -44,18 +44,18 @@ all: $(LIB_STATIC) $(LIB_SHARED) $(CLI_BIN) build/mizar.pc build/compile_command
 
 showcase: $(LIB_STATIC)
 	@mkdir -p build
-	@$(CC) $(CFLAGS) demo/showcase.c $(LIB_STATIC) -o build/showcase
+	@$(CC) $(CFLAGS) demo/showcase.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/showcase
 	@./build/showcase 4000
 
 doc-build: $(LIB_STATIC)
 	@mkdir -p build/docs
-	@$(CC) $(CFLAGS) -Idocs docs/main.c $(LIB_STATIC) -o build/docs_builder
+	@$(CC) $(CFLAGS) -Idocs docs/main.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/docs_builder
 	@./build/docs_builder build
 
 doc-serve: $(LIB_STATIC)
 	@mkdir -p build/docs
-	@$(CC) $(CFLAGS) -Idocs docs/main.c $(LIB_STATIC) -o build/docs_builder
-	@./build/docs_builder serve
+	@$(CC) $(CFLAGS) -Idocs docs/main.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/docs_builder
+	./build/docs_builder serve $(PORT_ARG)
 
 $(LIB_STATIC): $(OBJS)
 	$(AR) rcs $@ $^
@@ -63,23 +63,22 @@ $(LIB_STATIC): $(OBJS)
 $(LIB_SHARED): $(OBJS)
 	$(CC) $(SHLIB_FLAGS) -o $@ $^ $(LIBS_EXTRA)
 
-$(CLI_BIN): src/cli.c
+$(CLI_BIN): src/cli.c $(LIB_STATIC)
 	@mkdir -p build
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< $(LIB_STATIC) $(LIBS_EXTRA) -o $@
 
 build/%.o: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Automatically re-trigger object rebuild when TLS mode changes
-build/.tls_mode: FORCE
+build/.build_mode: FORCE
 	@mkdir -p build
-	@echo "$(TLS)" > $@.tmp
+	@echo "CFLAGS=$(CFLAGS) TLS=$(TLS)" > $@.tmp
 	@if [ ! -f $@ ] || ! cmp -s $@.tmp $@; then mv $@.tmp $@; rm -f $(OBJS) $(LIB_STATIC) $(LIB_SHARED); else rm -f $@.tmp; fi
 
 FORCE:
 
-$(OBJS): build/.tls_mode
+$(OBJS): build/.build_mode
 
 build/mizar.pc: mizar.pc.in src/core/version.h
 	@mkdir -p build

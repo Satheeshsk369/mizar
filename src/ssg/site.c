@@ -11,48 +11,35 @@
 
 void mz_site_init(MizarSite *site, const char *out_dir) {
     if (!site) return;
-    site->out_dir = out_dir ? strdup(out_dir) : strdup("dist");
+    memset(site, 0, sizeof(MizarSite));
+    mz_arena_init(&site->arena, 8192);
+    mz_vec_init(&site->route_vec, 16);
+    site->out_dir = mz_arena_strdup(&site->arena, out_dir ? out_dir : "dist");
     site->static_dir = nullptr;
-    site->routes = nullptr;
-    site->route_count = 0;
-    site->route_capacity = 0;
 }
 
 void mz_site_free(MizarSite *site) {
     if (!site) return;
-    free(site->out_dir);
-    free(site->static_dir);
-    for (size_t i = 0; i < site->route_count; i++) {
-        free(site->routes[i].route);
-    }
-    free(site->routes);
-    site->routes = nullptr;
-    site->route_count = 0;
-    site->route_capacity = 0;
+    mz_vec_free(&site->route_vec);
+    mz_arena_free(&site->arena);
+    memset(site, 0, sizeof(MizarSite));
 }
 
 void mz_site_set_static_dir(MizarSite *site, const char *static_dir) {
     if (!site) return;
-    free(site->static_dir);
-    site->static_dir = static_dir ? strdup(static_dir) : nullptr;
+    site->static_dir = static_dir ? mz_arena_strdup(&site->arena, static_dir) : nullptr;
 }
 
 bool mz_site_add_page_impl(MizarSite *site, const char *route, MizarPageRenderFn render_fn, void *user_data) {
     if (!site || !route || !render_fn) return false;
 
-    if (site->route_count >= site->route_capacity) {
-        size_t new_cap = site->route_capacity ? site->route_capacity * 2 : 16;
-        MizarRoute *new_routes = (MizarRoute *)realloc(site->routes, new_cap * sizeof(MizarRoute));
-        if (!new_routes) return false;
-        site->routes = new_routes;
-        site->route_capacity = new_cap;
-    }
+    MizarRoute *r = (MizarRoute *)mz_arena_alloc(&site->arena, sizeof(MizarRoute));
+    if (!r) return false;
+    r->route = mz_arena_strdup(&site->arena, route);
+    r->render_fn = render_fn;
+    r->user_data = user_data;
 
-    site->routes[site->route_count].route = strdup(route);
-    site->routes[site->route_count].render_fn = render_fn;
-    site->routes[site->route_count].user_data = user_data;
-    site->route_count++;
-    return true;
+    return mz_vec_push(&site->route_vec, r);
 }
 
 bool mz_site_build(MizarSite *site) {
@@ -74,8 +61,8 @@ bool mz_site_build(MizarSite *site) {
     }
 
     // 2. Render each route to disk
-    for (size_t i = 0; i < site->route_count; i++) {
-        MizarRoute *r = &site->routes[i];
+    for (size_t i = 0; i < site->route_vec.count; i++) {
+        MizarRoute *r = (MizarRoute *)mz_vec_get(&site->route_vec, i);
         char target_filepath[1024];
         mz_fs_route_to_filepath(site->out_dir, r->route, target_filepath, sizeof(target_filepath));
 

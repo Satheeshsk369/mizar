@@ -77,7 +77,7 @@ static void test_lru(void) {
     // Access 'a' to promote to MRU
     assert((intptr_t)mz_lru_get(&cache, "a") == 1);
 
-    // Insert 'd', should evict 'b' (LRU)
+    // Insert 'd', should evict 'b' (the least recently used)
     assert(mz_lru_put(&cache, "d", (void *)4));
     assert(mz_lru_get(&cache, "b") == nullptr);
     assert((intptr_t)mz_lru_get(&cache, "a") == 1);

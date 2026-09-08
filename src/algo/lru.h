@@ -12,6 +12,7 @@ struct MzLruNode {
     void *val;
     MzLruNode *prev;
     MzLruNode *next;
+    MzLruNode *next_hash;
 };
 
 typedef void (*MzLruFreeValFn)(void *val);

@@ -26,10 +26,6 @@ typedef struct {
 } MzMiddlewareEntry;
 
 struct MzApp {
-    MzRouteEntry *routes;
-    size_t route_count;
-    size_t route_capacity;
-
     MzMiddlewareEntry *middlewares;
     size_t middleware_count;
     size_t middleware_capacity;

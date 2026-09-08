@@ -3,6 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct MzLruEntry MzLruEntry;
+
+struct MzLruEntry {
+    char *key;
+    void *val;
+    MzLruEntry *hash_next;
+    MzLruNode list_node; // doubly-linked list node
+};
+
 static inline size_t lru_hash_index(const char *key, size_t bucket_count) {
     uint64_t h = mz_siphash13(key, strlen(key), nullptr);
     return (size_t)(h % bucket_count);
@@ -11,6 +20,7 @@ static inline size_t lru_hash_index(const char *key, size_t bucket_count) {
 bool mz_lru_init(MzLruCache *cache, size_t max_capacity, MzLruFreeValFn free_fn) {
     if (!cache || max_capacity == 0) return false;
     size_t buckets = max_capacity * 2;
+    if (buckets < 16) buckets = 16;
     cache->buckets = (MzLruNode **)calloc(buckets, sizeof(MzLruNode *));
     if (!cache->buckets) return false;
 
@@ -56,7 +66,7 @@ void *mz_lru_get(MzLruCache *cache, const char *key) {
             }
             return curr->val;
         }
-        curr = curr->next;
+        curr = curr->next_hash;
     }
     return nullptr;
 }
@@ -78,7 +88,7 @@ bool mz_lru_put(MzLruCache *cache, const char *key, void *val) {
             }
             return true;
         }
-        curr = curr->next;
+        curr = curr->next_hash;
     }
 
     // If at capacity, evict tail (LRU)
@@ -88,8 +98,8 @@ bool mz_lru_put(MzLruCache *cache, const char *key, void *val) {
 
         // Remove from hash chain
         MzLruNode **b = &cache->buckets[evict_idx];
-        while (*b && *b != evict) b = &(*b)->next;
-        if (*b) *b = evict->next;
+        while (*b && *b != evict) b = &(*b)->next_hash;
+        if (*b) *b = evict->next_hash;
 
         lru_detach(cache, evict);
 
@@ -105,7 +115,8 @@ bool mz_lru_put(MzLruCache *cache, const char *key, void *val) {
     node->key = strdup(key);
     node->val = val;
     node->prev = nullptr;
-    node->next = cache->buckets[idx];
+    node->next = nullptr;
+    node->next_hash = cache->buckets[idx];
     cache->buckets[idx] = node;
 
     lru_attach_head(cache, node);
