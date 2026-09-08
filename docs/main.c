@@ -51,34 +51,52 @@ int main(int argc, char **argv) {
         mz_site_add_page(&site, "/source/view", page_source_view);
         mz_site_add_page(&site, "/source/ssg", page_source_ssg);
 
+        const char *b = getenv("MIZAR_DOCS_BASE");
+        if (!b) b = "";
+        char u[256];
+
         // Register searchable entries dynamically
-        docs_register_search_item("/", "Mizar Overview", "Fundamentals",
+        snprintf(u, sizeof(u), "%s/", b);
+        docs_register_search_item(u, "Mizar Overview", "Fundamentals",
             "Mizar Web Framework ISO C23 sub-millisecond HTTP response predictable memory consumption non-blocking socket IO");
-        docs_register_search_item("/intro/", "Introduction & Design Principles", "Fundamentals",
+        snprintf(u, sizeof(u), "%s/intro/", b);
+        docs_register_search_item(u, "Introduction & Design Principles", "Fundamentals",
             "C23 nullptr compound literals designated initializers thread-local storage MzRequest borrowed state MzResponse owned state");
-        docs_register_search_item("/quickstart/", "Quickstart Guide", "Fundamentals",
+        snprintf(u, sizeof(u), "%s/quickstart/", b);
+        docs_register_search_item(u, "Quickstart Guide", "Fundamentals",
             "Quickstart installation toolchain GCC 14 Clang 18 mizar init scaffold minimal main.c handle_home mz_app_init mz_app_listen");
-        docs_register_search_item("/examples/minimal/", "01. Minimal Server", "Examples",
+        snprintf(u, sizeof(u), "%s/examples/minimal/", b);
+        docs_register_search_item(u, "01. Minimal Server", "Examples",
             "Minimal Server architecture main.c breakdown worker thread pool SO_REUSEPORT epoll kqueue mz_app_set_workers mz_res_html");
-        docs_register_search_item("/examples/routing/", "02. Routing, Queries & Forms", "Examples",
+        snprintf(u, sizeof(u), "%s/examples/routing/", b);
+        docs_register_search_item(u, "02. Routing, Queries & Forms", "Examples",
             "URL routing parameterized tokens :id mz_req_param mz_req_param_int query strings mz_req_query POST form submission mz_req_form");
-        docs_register_search_item("/examples/components/", "03. HTML5, SVG & MathML Composition", "Examples",
+        snprintf(u, sizeof(u), "%s/examples/components/", b);
+        docs_register_search_item(u, "03. HTML5, SVG & MathML Composition", "Examples",
             "JSX-style C23 macro DSL compound literals Div Section H3 Text SVG circle path MathML Math Math_Mrow Math_Mi Math_Mo");
-        docs_register_search_item("/examples/htmx/", "04. HTMX 4 Hypermedia Integration", "Examples",
+        snprintf(u, sizeof(u), "%s/examples/htmx/", b);
+        docs_register_search_item(u, "04. HTMX 4 Hypermedia Integration", "Examples",
             "HTMX 4 hypermedia returning fragments vs full pages mz_req_is_htmx HxGet HxTarget HxSwap beforeend MzPage partial swap");
-        docs_register_search_item("/examples/middleware/", "05. Middlewares, Sessions & Toasts", "Examples",
+        snprintf(u, sizeof(u), "%s/examples/middleware/", b);
+        docs_register_search_item(u, "05. Middlewares, Sessions & Toasts", "Examples",
             "Middlewares chained interceptors cryptographic HMAC-SHA256 MzSession mz_session_set mz_session_write flash toasts mz_res_flash");
-        docs_register_search_item("/examples/ssg/", "06. Static Site Generation Pipeline", "Examples",
+        snprintf(u, sizeof(u), "%s/examples/ssg/", b);
+        docs_register_search_item(u, "06. Static Site Generation Pipeline", "Examples",
             "Static Site Generator MizarSite mz_site_init mz_site_set_static_dir mz_site_add_page mz_site_build mz_site_serve dist preview");
-        docs_register_search_item("/source/overview/", "Source Architecture & Memory Model", "Source",
+        snprintf(u, sizeof(u), "%s/source/overview/", b);
+        docs_register_search_item(u, "Source Architecture & Memory Model", "Source",
             "Source repository layout algo server core view ssg ui per-request arena contract single-shot bulk deallocation mz_req_free");
-        docs_register_search_item("/source/algo/", "algo/ Data Structures & Algorithms", "Source",
+        snprintf(u, sizeof(u), "%s/source/algo/", b);
+        docs_register_search_item(u, "algo/ Data Structures & Algorithms", "Source",
             "MzArena monotonic bump allocator MzStrView zero-copy slices SipHash-1-3 Hash-DoS MzHashMap open-addressing Radix tree MzRingBuf UTF-8 DFA MzLruCache");
-        docs_register_search_item("/source/server/", "server/ Network Engine & Multiplexers", "Source",
+        snprintf(u, sizeof(u), "%s/source/server/", b);
+        docs_register_search_item(u, "server/ Network Engine & Multiplexers", "Source",
             "Server network multiplexers Linux epoll EPOLLET macOS BSD kqueue poll streaming request accumulator mz_socket_write_all EAGAIN");
-        docs_register_search_item("/source/view/", "view/ Declarative DSL Mechanics", "Source",
+        snprintf(u, sizeof(u), "%s/source/view/", b);
+        docs_register_search_item(u, "view/ Declarative DSL Mechanics", "Source",
             "View declarative DSL mechanics loop-macro technique scoped for-loops context stack depth recovery mz_context_restore_depth");
-        docs_register_search_item("/source/ssg/", "ssg/ Static Site Generator Architecture", "Source",
+        snprintf(u, sizeof(u), "%s/source/ssg/", b);
+        docs_register_search_item(u, "ssg/ Static Site Generator Architecture", "Source",
             "SSG architecture zero-allocation route vectors MzVec path canonicalization realpath directory traversal defense");
 
         if (!mz_site_build(&site)) {

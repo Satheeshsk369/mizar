@@ -1,62 +1,86 @@
 #include "docs_shared.h"
 
+// Returns base-prefixed URL e.g. "/mizar/style.css" or "/style.css" for local dev
+static inline const char *base_url(void) {
+    const char *b = getenv("MIZAR_DOCS_BASE");
+    return (b && *b) ? b : "";
+}
+
 static inline void render_sidebar(const char *current_slug) {
+    char link[256];
+    const char *b = base_url();
+
     Aside(.cls = "sidebar") {
-        A(.cls = "brand", .href = "/") {
+        snprintf(link, sizeof(link), "%s/", b);
+        A(.cls = "brand", .href = link) {
             Text("Mizar");
             Span() { Text("C23"); }
         }
 
         Div(.cls = "nav-section") {
             Div(.cls = "nav-title") { Text("1. Overview"); }
-            A(.cls = strcmp(current_slug, "index") == 0 ? "nav-link active" : "nav-link", .href = "/") {
+            snprintf(link, sizeof(link), "%s/", b);
+            A(.cls = strcmp(current_slug, "index") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("Mizar Overview");
             }
-            A(.cls = strcmp(current_slug, "intro") == 0 ? "nav-link active" : "nav-link", .href = "/intro/") {
+            snprintf(link, sizeof(link), "%s/intro/", b);
+            A(.cls = strcmp(current_slug, "intro") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("Introduction");
             }
-            A(.cls = strcmp(current_slug, "quickstart") == 0 ? "nav-link active" : "nav-link", .href = "/quickstart/") {
+            snprintf(link, sizeof(link), "%s/quickstart/", b);
+            A(.cls = strcmp(current_slug, "quickstart") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("Quickstart");
             }
         }
 
         Div(.cls = "nav-section") {
             Div(.cls = "nav-title") { Text("2. Progressive Examples"); }
-            A(.cls = strcmp(current_slug, "ex-minimal") == 0 ? "nav-link active" : "nav-link", .href = "/examples/minimal/") {
+            snprintf(link, sizeof(link), "%s/examples/minimal/", b);
+            A(.cls = strcmp(current_slug, "ex-minimal") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("01. Minimal Server");
             }
-            A(.cls = strcmp(current_slug, "ex-routing") == 0 ? "nav-link active" : "nav-link", .href = "/examples/routing/") {
+            snprintf(link, sizeof(link), "%s/examples/routing/", b);
+            A(.cls = strcmp(current_slug, "ex-routing") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("02. Routing & Params");
             }
-            A(.cls = strcmp(current_slug, "ex-components") == 0 ? "nav-link active" : "nav-link", .href = "/examples/components/") {
+            snprintf(link, sizeof(link), "%s/examples/components/", b);
+            A(.cls = strcmp(current_slug, "ex-components") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("03. HTML, SVG & Math");
             }
-            A(.cls = strcmp(current_slug, "ex-htmx") == 0 ? "nav-link active" : "nav-link", .href = "/examples/htmx/") {
+            snprintf(link, sizeof(link), "%s/examples/htmx/", b);
+            A(.cls = strcmp(current_slug, "ex-htmx") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("04. HTMX 4 Hypermedia");
             }
-            A(.cls = strcmp(current_slug, "ex-middleware") == 0 ? "nav-link active" : "nav-link", .href = "/examples/middleware/") {
+            snprintf(link, sizeof(link), "%s/examples/middleware/", b);
+            A(.cls = strcmp(current_slug, "ex-middleware") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("05. Middleware & Auth");
             }
-            A(.cls = strcmp(current_slug, "ex-ssg") == 0 ? "nav-link active" : "nav-link", .href = "/examples/ssg/") {
+            snprintf(link, sizeof(link), "%s/examples/ssg/", b);
+            A(.cls = strcmp(current_slug, "ex-ssg") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("06. Static Site Pipeline");
             }
         }
 
         Div(.cls = "nav-section") {
             Div(.cls = "nav-title") { Text("3. Source Architecture"); }
-            A(.cls = strcmp(current_slug, "src-overview") == 0 ? "nav-link active" : "nav-link", .href = "/source/overview/") {
+            snprintf(link, sizeof(link), "%s/source/overview/", b);
+            A(.cls = strcmp(current_slug, "src-overview") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("Source & Memory Model");
             }
-            A(.cls = strcmp(current_slug, "src-algo") == 0 ? "nav-link active" : "nav-link", .href = "/source/algo/") {
+            snprintf(link, sizeof(link), "%s/source/algo/", b);
+            A(.cls = strcmp(current_slug, "src-algo") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("algo/ Data Structures");
             }
-            A(.cls = strcmp(current_slug, "src-server") == 0 ? "nav-link active" : "nav-link", .href = "/source/server/") {
+            snprintf(link, sizeof(link), "%s/source/server/", b);
+            A(.cls = strcmp(current_slug, "src-server") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("server/ Network Engine");
             }
-            A(.cls = strcmp(current_slug, "src-view") == 0 ? "nav-link active" : "nav-link", .href = "/source/view/") {
+            snprintf(link, sizeof(link), "%s/source/view/", b);
+            A(.cls = strcmp(current_slug, "src-view") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("view/ Declarative DSL");
             }
-            A(.cls = strcmp(current_slug, "src-ssg") == 0 ? "nav-link active" : "nav-link", .href = "/source/ssg/") {
+            snprintf(link, sizeof(link), "%s/source/ssg/", b);
+            A(.cls = strcmp(current_slug, "src-ssg") == 0 ? "nav-link active" : "nav-link", .href = link) {
                 Text("ssg/ Generator Engine");
             }
         }
@@ -64,6 +88,10 @@ static inline void render_sidebar(const char *current_slug) {
 }
 
 void docs_layout(MizarBuffer *buf, const char *title, const char *slug, void (*content_fn)(void)) {
+    const char *b = base_url();
+    char css_path[256];
+    snprintf(css_path, sizeof(css_path), "%s/style.css", b);
+
     Html(buf, .lang = "en") {
         Head() {
             Meta(.charset = "UTF-8");
@@ -72,7 +100,7 @@ void docs_layout(MizarBuffer *buf, const char *title, const char *slug, void (*c
             Script() {
                 Js("try { const t = localStorage.getItem('mizar-theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); } catch(e) {}");
             }
-            Link(.rel = "stylesheet", .href = "/style.css");
+            Link(.rel = "stylesheet", .href = css_path);
             Link(.rel = "stylesheet", .id = "prism-light", .href = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css", .disabled = true);
             Link(.rel = "stylesheet", .id = "prism-dark", .href = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css");
             Script(.defer = true, .src = "https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js") {}
@@ -150,7 +178,9 @@ void docs_layout(MizarBuffer *buf, const char *title, const char *slug, void (*c
                     JsAsyncFn("loadSearchIndex", "") {
                         JsIf("!searchIndex") {
                             JsTry() {
-                                JsConst("res", "await fetch('/search-index.json')");
+                                char fetch_idx_str[256];
+                                snprintf(fetch_idx_str, sizeof(fetch_idx_str), "await fetch('%s/search-index.json')", b);
+                                JsConst("res", fetch_idx_str);
                                 JsAssign("searchIndex", "await res.json()");
                             }
                             JsCatch("e") {

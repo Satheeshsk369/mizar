@@ -35,7 +35,7 @@ jobs:
       - name: Build Documentation
         run: |
           make CC=gcc-14
-          make doc-build CC=gcc-14
+          MIZAR_DOCS_BASE="/mizar" make doc-build CC=gcc-14
 
       - name: Deploy to gh-pages Branch
         uses: peaceiris/actions-gh-pages@v4
