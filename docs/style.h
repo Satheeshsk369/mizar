@@ -10,7 +10,7 @@ static inline void render_docs_stylesheet(MizarBuffer *buf) {
         Rule(":root") {
             Prop("--bg", "#ffffff");
             Prop("--bg-surface", "#f8fafc");
-            Prop("--bg-subtle", "#f1f5f9");
+            Prop("--bg-subtle", "#eef2f6");
             Prop("--border", "#e2e8f0");
             Prop("--border-focus", "#94a3b8");
             Prop("--text", "#0f172a");
@@ -18,7 +18,8 @@ static inline void render_docs_stylesheet(MizarBuffer *buf) {
             Prop("--text-muted", "#64748b");
             Prop("--accent", "#0284c7");
             Prop("--accent-hover", "#0369a1");
-            Prop("--code-bg", "#f8fafc");
+            Prop("--code-bg", "#f1f5f9");
+            Prop("--code-border", "#cbd5e1");
             Prop("--code-color", "#0f172a");
             Prop("--inline-code-color", "#0369a1");
             Prop("--active-link-bg", "#e0f2fe");
@@ -32,25 +33,26 @@ static inline void render_docs_stylesheet(MizarBuffer *buf) {
         }
 
         Rule("[data-theme='dark']") {
-            Prop("--bg", "#0b0f17");
-            Prop("--bg-surface", "#111827");
-            Prop("--bg-subtle", "#1f2937");
-            Prop("--border", "#1f2937");
-            Prop("--border-focus", "#4b5563");
-            Prop("--text", "#f8fafc");
-            Prop("--text-body", "#cbd5e1");
-            Prop("--text-muted", "#94a3b8");
-            Prop("--accent", "#38bdf8");
-            Prop("--accent-hover", "#7dd3fc");
-            Prop("--code-bg", "#0f172a");
-            Prop("--code-color", "#e2e8f0");
-            Prop("--inline-code-color", "#38bdf8");
-            Prop("--active-link-bg", "#1e293b");
-            Prop("--badge-bg", "#1e293b");
-            Prop("--badge-text", "#38bdf8");
-            Prop("--badge-border", "#334155");
-            Prop("--header-bg", "rgba(11, 15, 23, 0.82)");
-            Prop("--dropdown-shadow", "0 10px 25px -5px rgba(0,0,0,0.5), 0 0 0 1px #374151");
+            Prop("--bg", "#141619");
+            Prop("--bg-surface", "#191c20");
+            Prop("--bg-subtle", "#21252b");
+            Prop("--border", "#282c34");
+            Prop("--border-focus", "#3e4451");
+            Prop("--text", "#f0f2f5");
+            Prop("--text-body", "#abb2bf");
+            Prop("--text-muted", "#7f848e");
+            Prop("--accent", "#98c379");
+            Prop("--accent-hover", "#b5e890");
+            Prop("--code-bg", "#181a1f");
+            Prop("--code-border", "#282c34");
+            Prop("--code-color", "#e5e9f0");
+            Prop("--inline-code-color", "#e5c07b");
+            Prop("--active-link-bg", "#21252b");
+            Prop("--badge-bg", "#21252b");
+            Prop("--badge-text", "#98c379");
+            Prop("--badge-border", "#282c34");
+            Prop("--header-bg", "rgba(20, 22, 25, 0.85)");
+            Prop("--dropdown-shadow", "0 10px 25px -5px rgba(0,0,0,0.6), 0 0 0 1px #282c34");
         }
 
         // Top Navigation Bar (Persistent Header with Frosted Glass)
@@ -322,14 +324,14 @@ static inline void render_docs_stylesheet(MizarBuffer *buf) {
         // Code Blocks
         Rule("pre[class*=\"language-\"], code[class*=\"language-\"]") {
             Prop("background", "var(--code-bg) !important");
-            Prop("border-color", "var(--border) !important");
+            Prop("border-color", "var(--code-border) !important");
             Prop("font-size", "0.88rem !important");
             Prop("line-height", "1.55 !important");
         }
 
         CssRule("pre", (CssProps){
             .background_color = "var(--code-bg)",
-            .border = "1px solid var(--border)",
+            .border = "1px solid var(--code-border)",
             .border_radius = Px(8),
             .padding_top = Rem(1.1),
             .padding_bottom = Rem(1.1),
