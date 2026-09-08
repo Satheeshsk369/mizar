@@ -20,20 +20,17 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+    container:
+      image: gcc:14
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install C23 Toolchain
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends gcc-14 pkg-config make
-
       - name: Build Mizar & Documentation
         run: |
-          make CC=gcc-14
-          make doc-build CC=gcc-14
+          make
+          make doc-build
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
