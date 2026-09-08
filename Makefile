@@ -34,7 +34,7 @@ all: $(LIB_STATIC) $(LIB_SHARED) build/mizar.pc build/compile_commands.json
 
 showcase: $(LIB_STATIC)
 	@mkdir -p build
-	@$(CC) $(CFLAGS) examples/showcase.c $(LIB_STATIC) -o build/showcase
+	@$(CC) $(CFLAGS) demo/showcase.c $(LIB_STATIC) -o build/showcase
 	@./build/showcase 4000
 
 doc-build: $(LIB_STATIC)
