@@ -38,7 +38,7 @@ LIB_STATIC = build/libmizar.a
 LIB_SHARED = build/libmizar.$(SO_EXT)
 CLI_BIN = build/mizar
 
-DOCS_SRCS = $(wildcard docs/*.c)
+DOCS_SRCS = docs/main.c docs/layout.c docs/search_index.c docs/pages_fundamentals.c docs/pages_examples.c docs/pages_source.c
 
 all: $(LIB_STATIC) $(LIB_SHARED) $(CLI_BIN) build/mizar.pc build/compile_commands.json
 
@@ -49,12 +49,12 @@ showcase: $(LIB_STATIC)
 
 doc-build: $(LIB_STATIC)
 	@mkdir -p build/docs
-	@$(CC) $(CFLAGS) -Idocs docs/main.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/docs_builder
+	@$(CC) $(CFLAGS) -Idocs $(DOCS_SRCS) $(LIB_STATIC) $(LIBS_EXTRA) -o build/docs_builder
 	@./build/docs_builder build
 
 doc-serve: $(LIB_STATIC)
 	@mkdir -p build/docs
-	@$(CC) $(CFLAGS) -Idocs docs/main.c $(LIB_STATIC) $(LIBS_EXTRA) -o build/docs_builder
+	@$(CC) $(CFLAGS) -Idocs $(DOCS_SRCS) $(LIB_STATIC) $(LIBS_EXTRA) -o build/docs_builder
 	./build/docs_builder serve $(PORT_ARG)
 
 $(LIB_STATIC): $(OBJS)
