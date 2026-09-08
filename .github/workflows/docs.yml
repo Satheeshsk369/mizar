@@ -10,16 +10,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  contents: write
 
 jobs:
-  build:
+  deploy-gh-pages:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
@@ -33,33 +27,19 @@ jobs:
           restore-keys: |
             apt-gcc14-${{ runner.os }}
 
-      - name: Setup GCC 14 
+      - name: Setup GCC 14
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends gcc-14 pkg-config make
 
-      - name: Build Mizar & Documentation
+      - name: Build Documentation
         run: |
           make CC=gcc-14
           make doc-build CC=gcc-14
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Deploy to gh-pages Branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          enablement: true
-
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/docs
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-24.04
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/docs
+          force_orphan: true
