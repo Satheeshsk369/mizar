@@ -25,6 +25,7 @@
 #include "server/http.h"
 #include "server/session.h"
 #include "server/flash.h"
+#include "server/middleware.h"
 #include "server/app.h"
 
 // HTMX Convenience macros for HTML Attrs (HTMX 4 & HTMX 2 Compatible)

@@ -24,6 +24,7 @@ else
 endif
 
 PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
 INCLUDEDIR ?= $(PREFIX)/include
 LIBDIR ?= $(PREFIX)/lib
 PKGCONFIGDIR ?= $(PREFIX)/share/pkgconfig
@@ -118,10 +119,13 @@ test: $(LIB_STATIC)
 	@echo "All tests passed cleanly."
 
 install: all
+	@mkdir -p $(DESTDIR)$(BINDIR)
 	@mkdir -p $(DESTDIR)$(INCLUDEDIR)/mizar
 	@mkdir -p $(DESTDIR)$(LIBDIR)
 	@mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig
 	@mkdir -p $(DESTDIR)$(PREFIX)/share/pkgconfig
+	cp bin/mizar-new $(DESTDIR)$(BINDIR)/
+	chmod +x $(DESTDIR)$(BINDIR)/mizar-new
 	cp -r src/* $(DESTDIR)$(INCLUDEDIR)/mizar/
 	find $(DESTDIR)$(INCLUDEDIR)/mizar -name '*.c' -delete
 	cp $(LIB_STATIC) $(DESTDIR)$(LIBDIR)/
@@ -131,6 +135,7 @@ install: all
 	@echo "Mizar successfully installed to $(DESTDIR)$(PREFIX)"
 
 uninstall:
+	rm -f $(DESTDIR)$(BINDIR)/mizar-new
 	rm -rf $(DESTDIR)$(INCLUDEDIR)/mizar
 	rm -f $(DESTDIR)$(LIBDIR)/libmizar.a
 	rm -f $(DESTDIR)$(LIBDIR)/libmizar.$(SO_EXT)

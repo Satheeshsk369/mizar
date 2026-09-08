@@ -284,5 +284,42 @@ int main(void) {
         mz_req_free(&req);
     }
 
+    // 8. Test Middleware Presets (Security Headers & CORS)
+    {
+        MzRequest req_opt;
+        const char *raw_opt = "OPTIONS /api/data HTTP/1.1\r\nHost: localhost\r\n\r\n";
+        assert(mz_http_parse_request(raw_opt, strlen(raw_opt), &req_opt));
+
+        MzResponse res_opt;
+        mz_res_init(&res_opt);
+
+        MzCorsOpts cors_opts = {
+            .allow_origin = "https://example.com",
+            .allow_credentials = true,
+            .max_age = 3600
+        };
+
+        // Security headers middleware
+        assert(mz_middleware_security_headers(&req_opt, &res_opt, nullptr));
+        // CORS middleware intercepting OPTIONS
+        bool cont = mz_middleware_cors_handler(&req_opt, &res_opt, &cors_opts);
+        assert(!cont); // Intercepted
+        assert(res_opt.status_code == 204);
+
+        MizarBuffer out;
+        mz_buf_init(&out, 1024);
+        mz_res_serialize(&res_opt, &out);
+
+        assert(strstr(out.data, "X-Content-Type-Options: nosniff") != NULL);
+        assert(strstr(out.data, "X-Frame-Options: DENY") != NULL);
+        assert(strstr(out.data, "Access-Control-Allow-Origin: https://example.com") != NULL);
+        assert(strstr(out.data, "Access-Control-Allow-Credentials: true") != NULL);
+        assert(strstr(out.data, "Access-Control-Max-Age: 3600") != NULL);
+
+        mz_buf_free(&out);
+        mz_res_free(&res_opt);
+        mz_req_free(&req_opt);
+    }
+
     return 0;
 }
