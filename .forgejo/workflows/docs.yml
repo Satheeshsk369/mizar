@@ -1,0 +1,42 @@
+name: Deploy Documentation (Forgejo)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.forgejo/workflows/docs.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-gh-pages:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Cache Compiler Packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-gcc14-${{ runner.os }}
+          restore-keys: |
+            apt-gcc14-${{ runner.os }}
+
+      - name: Setup GCC 14
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc-14 pkg-config make
+
+      - name: Build Documentation
+        run: |
+          make CC=gcc-14
+          MIZAR_DOCS_BASE="/mizar" make doc-build CC=gcc-14
+
+      - name: Deploy to gh-pages Branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/docs
+          force_orphan: true
