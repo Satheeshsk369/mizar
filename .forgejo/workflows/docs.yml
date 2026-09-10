@@ -22,7 +22,7 @@ jobs:
           MIZAR_DOCS_BASE="/mizar" make doc-build
 
       - name: Deploy to gh-pages Branch
-        uses: peaceiris/actions-gh-pages@v4
+        uses: https://github.com/peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/docs
