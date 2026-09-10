@@ -22,8 +22,21 @@ jobs:
           MIZAR_DOCS_BASE="/mizar" make doc-build
 
       - name: Deploy to gh-pages Branch
-        uses: https://github.com/peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./build/docs
-          force_orphan: true
+        run: |
+          TEMP_DIR=$(mktemp -d)
+          cp -r ./build/docs/* "$TEMP_DIR/"
+          touch "$TEMP_DIR/.nojekyll"
+
+          cd "$TEMP_DIR"
+          git init
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@noreply.localhost"
+
+          git checkout --orphan gh-pages
+          git add -A
+          git commit -m "deploy: ${{ github.sha }}"
+
+          # Push to the local repo origin using the workflow token
+          git push -f "http://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@localhost:5555/${{ github.repository }}.git" gh-pages
+
+          rm -rf "$TEMP_DIR"
