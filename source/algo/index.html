@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>algo/ Data Structures — Mizar C23 Manual</title><script>try { const t = localStorage.getItem('mizar-theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); } catch(e) {}
+</script><link href="/mizar/style.css" rel="stylesheet" /><link id="prism-light" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" rel="stylesheet" disabled /><link id="prism-dark" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" /><script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-c.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-makefile.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js" defer></script><link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet" /><script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" defer></script><script>document.addEventListener('DOMContentLoaded', () => {
+renderMathInElement(document.body);
+document.querySelectorAll('pre code').forEach((el) => {
+if (!el.className) {
+el.className = 'language-c';
+}
+});
+if (window.Prism) {
+Prism.highlightAll();
+}
+});
+</script></head><body><aside class="sidebar"><a class="brand" href="/mizar/">Mizar<span>C23</span></a><div class="nav-section"><div class="nav-title">1. Overview</div><a class="nav-link" href="/mizar/">Mizar Overview</a><a class="nav-link" href="/mizar/intro/">Introduction</a><a class="nav-link" href="/mizar/quickstart/">Quickstart</a></div><div class="nav-section"><div class="nav-title">2. Progressive Examples</div><a class="nav-link" href="/mizar/examples/minimal/">01. Minimal Server</a><a class="nav-link" href="/mizar/examples/routing/">02. Routing &amp; Params</a><a class="nav-link" href="/mizar/examples/components/">03. HTML, SVG &amp; Math</a><a class="nav-link" href="/mizar/examples/htmx/">04. HTMX 4 Hypermedia</a><a class="nav-link" href="/mizar/examples/middleware/">05. Middleware &amp; Auth</a><a class="nav-link" href="/mizar/examples/ssg/">06. Static Site Pipeline</a></div><div class="nav-section"><div class="nav-title">3. Source Architecture</div><a class="nav-link" href="/mizar/source/overview/">Source &amp; Memory Model</a><a class="nav-link active" href="/mizar/source/algo/">algo/ Data Structures</a><a class="nav-link" href="/mizar/source/server/">server/ Network Engine</a><a class="nav-link" href="/mizar/source/view/">view/ Declarative DSL</a><a class="nav-link" href="/mizar/source/ssg/">ssg/ Generator Engine</a></div></aside><main class="main-wrapper"><div class="top-bar"><div class="search-box"><input id="doc-search" class="search-input" type="search" placeholder="Search documentation (Ctrl+K)..." autocomplete="off" /><div id="search-dropdown" class="search-dropdown"></div></div><button id="theme-btn" class="theme-toggle" title="Toggle Dark Mode"><span id="theme-icon-sun" style="display:none;line-height:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5" /><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></svg></span><span id="theme-icon-moon" style="display:inline-block;line-height:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg></span></button></div><header class="page-header"><h1>algo/ Data Structures &amp; Algorithms</h1><p class="tagline">Deep dive into the 8 core algorithm primitives underpinning the framework.</p></header><h2>1. MzArena (arena.h / arena.c)</h2><p>Monotonic bump allocator supporting aligned allocations, zero-initialized memory (mz_arena_calloc), and bulk reset. Guarantees max_align_t alignment on all platforms.</p><h2>2. MzStrView (strview.h)</h2><p>Immutable string slice consisting of (const char *data, size_t len). Provides constant-time length lookups, case-insensitive comparison (mz_sv_eq_ci), and delimiter splitting without modifying the source buffer.</p><h2>3. SipHash-1-3 (siphash.h / siphash.c)</h2><p>Cryptographically hardened 64-bit hash algorithm seeded from /dev/urandom at startup. Protects HTTP header, query, and form hash maps against algorithmic Hash DoS collision attacks.</p><h2>4. MzHashMap (hashmap.h / hashmap.c)</h2><p>Power-of-two open-addressing hash table with linear probing and tombstone markers. Supports arena-backed allocation (mz_map_init_arena) and lazy capacity expansion.</p><h2>5. Radix Tree (radix.h)</h2><p>Prefix tree routing engine matching static paths, parameterized tokens (:id), and wildcards (*) in O(k) time where k is path length.</p><h2>6. MzRingBuf (ringbuf.h / ringbuf.c)</h2><p>Power-of-two circular byte buffer for non-blocking stream processing with non-consuming peek operations.</p><h2>7. DFA UTF-8 Engine (utf8.h / utf8.c)</h2><p>State-machine based UTF-8 validator and code point decoder based on Bjoern Hoehrmann&#39;s DFA algorithm.</p><h2>8. MzLruCache (lru.h / lru.c)</h2><p>O(1) Least Recently Used cache combining SipHash hash indexing with an intrusive doubly-linked list for automatic tail eviction.</p></main><script>function updateThemeUI(theme) {
+const pLight = document.getElementById('prism-light');
+const pDark = document.getElementById('prism-dark');
+if (pLight && pDark) {
+pLight.disabled = theme === 'dark';
+pDark.disabled = theme !== 'dark';
+}
+const sunIcon = document.getElementById('theme-icon-sun');
+const moonIcon = document.getElementById('theme-icon-moon');
+if (sunIcon && moonIcon) {
+sunIcon.style.display = theme === 'dark' ? 'inline-block' : 'none';
+moonIcon.style.display = theme === 'dark' ? 'none' : 'inline-block';
+}
+}
+document.addEventListener('DOMContentLoaded', () => {
+const savedTheme = (typeof localStorage !== 'undefined' && localStorage.getItem('mizar-theme')) || 'dark';
+document.documentElement.setAttribute('data-theme', savedTheme);
+updateThemeUI(savedTheme);
+document.getElementById('theme-btn')?.addEventListener('click', (e) => {
+const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+const next = cur === 'dark' ? 'light' : 'dark';
+document.documentElement.setAttribute('data-theme', next);
+if (typeof localStorage !== 'undefined') {
+localStorage.setItem('mizar-theme', next);
+}
+updateThemeUI(next);
+});
+let searchIndex = null;
+async function loadSearchIndex() {
+if (!searchIndex) {
+try {
+const res = await fetch('/mizar/search-index.json');
+searchIndex = await res.json();
+} catch (e) {
+searchIndex = [];
+}
+}
+return searchIndex;
+}
+const search = document.getElementById('doc-search');
+const dropdown = document.getElementById('search-dropdown');
+window?.addEventListener('keydown', (e) => {
+if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+e.preventDefault();
+search?.focus();
+}
+if (e.key === 'Escape') {
+dropdown.style.display = 'none';
+}
+});
+search?.addEventListener('focus', (e) => {
+loadSearchIndex();
+});
+search?.addEventListener('input', async (e) => {
+const q = e.target.value.toLowerCase().trim();
+if (!q) {
+dropdown.style.display = 'none';
+dropdown.innerHTML = '';
+return ;
+}
+const idx = await loadSearchIndex();
+const matches = [];
+for (const doc of idx) {
+const titleIdx = doc.title.toLowerCase().indexOf(q);
+const catIdx = (doc.category || '').toLowerCase().indexOf(q);
+const textIdx = doc.body.toLowerCase().indexOf(q);
+if (titleIdx !== -1 || catIdx !== -1 || textIdx !== -1) {
+let snippet = '';
+if (textIdx !== -1) {
+const start = Math.max(0, textIdx - 40);
+const end = Math.min(doc.body.length, textIdx + 80);
+snippet = (start > 0 ? '...' : '') + doc.body.slice(start, end) + (end < doc.body.length ? '...' : '');
+}
+else {
+snippet = doc.body.slice(0, 100) + '...';
+}
+matches.push({ title: doc.title, category: doc.category || 'Docs', url: doc.url, snippet: snippet });
+if (matches.length >= 8) {
+break;
+}
+}
+}
+if (matches.length === 0) {
+dropdown.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:0.85rem;">No matching documentation found.</div>';
+}
+else {
+dropdown.innerHTML = matches.map(m => `
+  <a href="${m.url}" class="search-result-item">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span class="search-result-title">${m.title}</span>
+      <span style="font-size:0.7rem; text-transform:uppercase; background:var(--bg-card); padding:2px 6px; border-radius:4px; border:1px solid var(--border-color); color:var(--text-muted);">${m.category}</span>
+    </div>
+    <span class="search-result-snippet">${m.snippet.replace(/</g, '&lt;')}</span>
+  </a>`).join('');
+}
+dropdown.style.display = 'flex';
+});
+document?.addEventListener('click', (e) => {
+if (!search?.contains(e.target) && !dropdown?.contains(e.target)) {
+if (dropdown) {
+dropdown.style.display = 'none';
+}
+}
+});
+});
+</script></body></html>

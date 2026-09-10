@@ -1,0 +1,86 @@
+[
+  {
+    "url": "/mizar/",
+    "title": "Mizar Overview",
+    "category": "Fundamentals",
+    "body": "Mizar Web Framework ISO C23 sub-millisecond HTTP response predictable memory consumption non-blocking socket IO"
+  },
+  {
+    "url": "/mizar/intro/",
+    "title": "Introduction & Design Principles",
+    "category": "Fundamentals",
+    "body": "C23 nullptr compound literals designated initializers thread-local storage MzRequest borrowed state MzResponse owned state"
+  },
+  {
+    "url": "/mizar/quickstart/",
+    "title": "Quickstart Guide",
+    "category": "Fundamentals",
+    "body": "Quickstart installation toolchain GCC 14 Clang 18 mizar init scaffold minimal main.c handle_home mz_app_init mz_app_listen"
+  },
+  {
+    "url": "/mizar/examples/minimal/",
+    "title": "01. Minimal Server",
+    "category": "Examples",
+    "body": "Minimal Server architecture main.c breakdown worker thread pool SO_REUSEPORT epoll kqueue mz_app_set_workers mz_res_html"
+  },
+  {
+    "url": "/mizar/examples/routing/",
+    "title": "02. Routing, Queries & Forms",
+    "category": "Examples",
+    "body": "URL routing parameterized tokens :id mz_req_param mz_req_param_int query strings mz_req_query POST form submission mz_req_form"
+  },
+  {
+    "url": "/mizar/examples/components/",
+    "title": "03. HTML5, SVG & MathML Composition",
+    "category": "Examples",
+    "body": "JSX-style C23 macro DSL compound literals Div Section H3 Text SVG circle path MathML Math Math_Mrow Math_Mi Math_Mo"
+  },
+  {
+    "url": "/mizar/examples/htmx/",
+    "title": "04. HTMX 4 Hypermedia Integration",
+    "category": "Examples",
+    "body": "HTMX 4 hypermedia returning fragments vs full pages mz_req_is_htmx HxGet HxTarget HxSwap beforeend MzPage partial swap"
+  },
+  {
+    "url": "/mizar/examples/middleware/",
+    "title": "05. Middlewares, Sessions & Toasts",
+    "category": "Examples",
+    "body": "Middlewares chained interceptors cryptographic HMAC-SHA256 MzSession mz_session_set mz_session_write flash toasts mz_res_flash"
+  },
+  {
+    "url": "/mizar/examples/ssg/",
+    "title": "06. Static Site Generation Pipeline",
+    "category": "Examples",
+    "body": "Static Site Generator MizarSite mz_site_init mz_site_set_static_dir mz_site_add_page mz_site_build mz_site_serve dist preview"
+  },
+  {
+    "url": "/mizar/source/overview/",
+    "title": "Source Architecture & Memory Model",
+    "category": "Source",
+    "body": "Source repository layout algo server core view ssg ui per-request arena contract single-shot bulk deallocation mz_req_free"
+  },
+  {
+    "url": "/mizar/source/algo/",
+    "title": "algo/ Data Structures & Algorithms",
+    "category": "Source",
+    "body": "MzArena monotonic bump allocator MzStrView zero-copy slices SipHash-1-3 Hash-DoS MzHashMap open-addressing Radix tree MzRingBuf UTF-8 DFA MzLruCache"
+  },
+  {
+    "url": "/mizar/source/server/",
+    "title": "server/ Network Engine & Multiplexers",
+    "category": "Source",
+    "body": "Server network multiplexers Linux epoll EPOLLET macOS BSD kqueue poll streaming request accumulator mz_socket_write_all EAGAIN"
+  },
+  {
+    "url": "/mizar/source/view/",
+    "title": "view/ Declarative DSL Mechanics",
+    "category": "Source",
+    "body": "View declarative DSL mechanics loop-macro technique scoped for-loops context stack depth recovery mz_context_restore_depth"
+  },
+  {
+    "url": "/mizar/source/ssg/",
+    "title": "ssg/ Static Site Generator Architecture",
+    "category": "Source",
+    "body": "SSG architecture zero-allocation route vectors MzVec path canonicalization realpath directory traversal defense"
+  }
+]
