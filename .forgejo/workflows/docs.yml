@@ -21,6 +21,12 @@ jobs:
           make
           MIZAR_DOCS_BASE="/mizar" make doc-build
 
+      - name: Deploy to Local Web Host
+        run: |
+          mkdir -p "$HOME/.local/share/mizar-docs/mizar"
+          rm -rf "$HOME/.local/share/mizar-docs/mizar"/*
+          cp -r ./build/docs/* "$HOME/.local/share/mizar-docs/mizar/"
+
       - name: Deploy to gh-pages Branch
         run: |
           TEMP_DIR=$(mktemp -d)
@@ -36,7 +42,6 @@ jobs:
           git add -A
           git commit -m "deploy: ${{ github.sha }}"
 
-          # Push to the local repo origin using the workflow token
           git push -f "http://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@localhost:5555/${{ github.repository }}.git" gh-pages
 
           rm -rf "$TEMP_DIR"
