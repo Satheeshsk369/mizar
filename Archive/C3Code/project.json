@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "targets": {
+    "mizar": {
+      "type": "static-lib",
+      "sources": ["src"],
+      "sources-override": [
+        "src/core",
+        "src/algo",
+        "src/server",
+        "src/view",
+        "src/ui",
+        "src/ssg"
+      ]
+    },
+    "mizar-cli": {
+      "type": "executable",
+      "sources": ["src"]
+    },
+    "test_suite": {
+      "type": "executable",
+      "sources": [
+        "src/core",
+        "src/algo",
+        "src/server",
+        "src/view",
+        "src/ui",
+        "src/ssg",
+        "test"
+      ]
+    }
+  }
+}
